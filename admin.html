@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bảng Điều Khiển Admin | Giám Sát Đua Thuyền 3D</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/style.css">
+    
+    <!-- Import Socket.IO -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    
+    <!-- Import Canvas Confetti for Victory Podium -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <!-- Import Map to resolve Three.js ES Modules natively in browser -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.163.0/build/three.module.js",
+          "three/examples/jsm/": "https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/"
+        }
+      }
+    </script>
+</head>
+<body class="admin-body">
+    <!-- 3D Ocean Canvas Container -->
+    <div id="canvas-container"></div>
+    
+    <!-- Admin Top Dashboard Bar -->
+    <div class="admin-top-bar">
+        <div class="admin-title-group">
+            <span class="pulse-red-dot"></span>
+            <h1 class="admin-title">TRUNG TÂM GIÁM SÁT ĐUA THUYỀN 3D</h1>
+        </div>
+        <div class="admin-actions-group" style="display: flex; align-items: center; gap: 20px;">
+            <div class="route-label">
+                HÀNH TRÌNH: <span class="flag-text">🇻🇳 VIỆT NAM</span> ➜ <span class="flag-text">🇫🇷 PHÁP</span>
+            </div>
+            <button id="pause-game-btn" class="glow-btn pause-system-btn" style="display: none; margin-right: 10px;">TẠM DỪNG</button>
+            <button id="reset-game-btn" class="glow-btn reset-system-btn">RESET TRÒ CHƠI</button>
+        </div>
+    </div>
+    
+    <!-- Admin Controls Overlay -->
+    <div id="admin-panel" class="admin-floating-panel glass-panel active">
+        <h2 class="glow-text">PHÒNG CHỜ THI ĐẤU</h2>
+        <p class="panel-subtitle">Quản lý thuyền trưởng tham gia ra khơi</p>
+        
+        <div class="players-lobby-list">
+            <div class="lobby-header">
+                THUYỀN TRƯỞNG ĐÃ KẾT NỐI (<span id="connected-count">0</span>)
+            </div>
+            <div id="lobby-players-grid" class="players-grid">
+                <!-- Dynamic player list -->
+                <div class="no-players">Đang đợi các thuyền trưởng tham gia...</div>
+            </div>
+        </div>
+        
+        <button id="start-game-btn" class="glow-btn start-btn" disabled>BẮT ĐẦU CHƠI</button>
+    </div>
+    
+    <!-- Live Leaderboard Overlaid on 3D Race Screen -->
+    <div id="live-leaderboard" class="glass-panel">
+        <h3 class="leaderboard-title">BẢNG XẾP HẠNG THỜI GIAN THỰC</h3>
+        <div class="leaderboard-divider"></div>
+        <div id="leaderboard-list">
+            <!-- Real-time player progress list -->
+        </div>
+    </div>
+    
+    <!-- Victory Ceremony Podium Screen -->
+    <div id="podium-screen" class="podium-overlay glass-panel">
+        <h1 class="glow-text podium-main-title">LỄ TRAO GIẢI VẬN ĐỘNG VIÊN</h1>
+        <p class="podium-subtitle">Chúc mừng những chiến binh đã vượt đại dương xuất sắc nhất!</p>
+        
+        <div class="podium-structure">
+            <!-- Rank 2: Silver -->
+            <div class="podium-step step-silver">
+                <div class="podium-rank">2</div>
+                <div class="podium-block">
+                    <div class="podium-avatar-wrapper" id="podium-avatar-2">
+                        <!-- Name & Color -->
+                    </div>
+                    <div class="podium-metal">BẠC</div>
+                </div>
+            </div>
+            
+            <!-- Rank 1: Gold -->
+            <div class="podium-step step-gold">
+                <div class="podium-rank">1</div>
+                <div class="podium-block">
+                    <div class="podium-avatar-wrapper" id="podium-avatar-1">
+                        <!-- Name & Color -->
+                    </div>
+                    <div class="podium-metal">VÀNG</div>
+                </div>
+            </div>
+            
+            <!-- Rank 3: Bronze -->
+            <div class="podium-step step-bronze">
+                <div class="podium-rank">3</div>
+                <div class="podium-block">
+                    <div class="podium-avatar-wrapper" id="podium-avatar-3">
+                        <!-- Name & Color -->
+                    </div>
+                    <div class="podium-metal">ĐỒNG</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="losers-summary">
+            <h4>CÁC THUYỀN KHÁC ĐÃ BỊ NỔ TUNG DƯỚI ĐẠI DƯƠNG!</h4>
+        </div>
+        
+        <button onclick="window.location.reload();" class="glow-btn restart-btn">KHỞI ĐỘNG GIẢI MỚI</button>
+    </div>
+    
+    <!-- Sound Effects -->
+    <audio id="sfx-ambient" src="https://assets.mixkit.co/active_storage/sfx/2568/2568-84.wav" loop preload="auto"></audio>
+    <audio id="sfx-horn" src="https://assets.mixkit.co/active_storage/sfx/2744/2744-84.wav" preload="auto"></audio>
+    <audio id="sfx-explosion" src="https://assets.mixkit.co/active_storage/sfx/2763/2763-84.wav" preload="auto"></audio>
+    
+    <!-- Import Admin Logic -->
+    <script type="module" src="/admin.js?v=2"></script>
+</body>
+</html>

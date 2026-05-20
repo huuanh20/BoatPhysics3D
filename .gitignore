@@ -1,0 +1,12 @@
+node_modules/
+*.log
+__pycache__/
+.DS_Store
+.vscode/
+.idea/
+.gemini/
+*.pyc
+*.pyo
+*.pyd
+.env
+vsk/
