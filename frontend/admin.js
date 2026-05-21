@@ -598,11 +598,16 @@ function paintBoat(boatGroup, colorHex) {
                 const matName = (mat.name || "").toLowerCase();
                 const meshName = (child.name || "").toLowerCase();
                 
-                // Exact match fiberglass body and hull parts
-                // Hull / Deck Materials: acmat_0, acmat_7, acmat_8, acmat_13
-                // Hull / Deck Meshes: object_2, object_7, object_13, object_14
-                const isHullMat = matName === "acmat_0" || matName === "acmat_7" || matName === "acmat_8" || matName === "acmat_13";
-                const isHullMesh = meshName === "object_2" || meshName === "object_7" || meshName === "object_13" || meshName === "object_14";
+                // Nếu chất liệu đã được sơn trước đó, cập nhật màu trực tiếp để tối ưu hiệu năng
+                if (matName.includes("painted")) {
+                    mat.color.copy(color);
+                    mat.needsUpdate = true;
+                    return mat;
+                }
+                
+                // So khớp một phần an toàn hơn để thích ứng với mọi chỉnh sửa của GLTFLoader
+                const isHullMat = matName.includes("acmat_0") || matName.includes("acmat_7") || matName.includes("acmat_8") || matName.includes("acmat_13");
+                const isHullMesh = meshName.includes("object_2") || meshName.includes("object_7") || meshName.includes("object_13") || meshName.includes("object_14");
                 
                 if (isHullMat || isHullMesh) {
                     return new THREE.MeshStandardMaterial({
@@ -619,13 +624,13 @@ function paintBoat(boatGroup, colorHex) {
             if (Array.isArray(child.material)) {
                 for (let i = 0; i < child.material.length; i++) {
                     const newM = processMaterial(child.material[i]);
-                    if (newM) {
+                    if (newM && newM !== child.material[i]) {
                         child.material[i] = newM;
                     }
                 }
             } else if (child.material) {
                 const newM = processMaterial(child.material);
-                if (newM) {
+                if (newM && newM !== child.material) {
                     child.material = newM;
                 }
             }
