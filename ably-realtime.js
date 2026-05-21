@@ -31,10 +31,34 @@ function waitForConnection(ably) {
   });
 }
 
-export async function connectAbly({ clientId, name, color, role }) {
+async function fetchTokenRequest(clientId) {
   const authUrl = `/api/ably-token?clientId=${encodeURIComponent(clientId)}`;
+  const res = await fetch(authUrl, { credentials: "same-origin" });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const msg = body.error || body.detail || `HTTP ${res.status}`;
+    const hint = body.hint ? ` ${body.hint}` : "";
+    throw new Error(`${msg}${hint}`);
+  }
+  return body;
+}
+
+export async function connectAbly({ clientId, name, color, role }) {
+  if (typeof Ably === "undefined") {
+    throw new Error("Ably SDK chưa load. Kiểm tra script CDN trong HTML.");
+  }
+
+  await fetchTokenRequest(clientId);
+
   const ably = new Ably.Realtime({
-    authUrl,
+    authCallback: async (_tokenParams, callback) => {
+      try {
+        const tokenRequest = await fetchTokenRequest(clientId);
+        callback(null, tokenRequest);
+      } catch (err) {
+        callback(err.message || String(err), null);
+      }
+    },
     clientId,
     echoMessages: false,
   });

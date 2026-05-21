@@ -840,7 +840,13 @@ joinBtn.addEventListener("click", async () => {
         await refreshLobbyFromPresence();
     } catch (err) {
         console.error("Ably connect failed:", err);
-        alert("Không thể kết nối realtime. Kiểm tra ABLY_API_KEY trên server.");
+        alert(
+            `Không thể kết nối realtime.\n\n${err?.message || err}\n\n` +
+                "Kiểm tra:\n" +
+                "1) Vercel có ABLY_API_KEY (Production + Preview)\n" +
+                "2) Đã Redeploy sau khi thêm env\n" +
+                "3) Mở /api/ably-token?clientId=test trên cùng domain — phải trả JSON, không phải 404"
+        );
     } finally {
         joinBtn.disabled = false;
     }
