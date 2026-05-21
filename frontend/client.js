@@ -766,8 +766,7 @@ function handleLocalAnswer(answerIdx) {
     if (!gameStarted || gamePaused || !myPlayer) return;
 
     const qIdx = quizQueue[quizQueueIdx];
-    const isCorrect =
-        answerIdx === QUESTIONS[qIdx].answer || answerIdx === -99;
+    const isCorrect = answerIdx === QUESTIONS[qIdx].answer;
 
     if (isCorrect) {
         quizScore += 1;
@@ -791,7 +790,14 @@ function handleLocalAnswer(answerIdx) {
 
     const finished = quizScore >= QUESTIONS.length;
     if (finished && myPlayer.rank == null) {
-        myPlayer.rank = 1;
+        // Calculate dynamic rank based on competitors who have already finished (progress >= 1.0)
+        let finishedCount = 0;
+        Object.values(activePlayers).forEach(p => {
+            if (p.progress >= 1.0) {
+                finishedCount++;
+            }
+        });
+        myPlayer.rank = finishedCount + 1;
         onVictory({ rank: myPlayer.rank });
         return;
     }
@@ -814,19 +820,6 @@ optionButtons.forEach(btn => {
         
         handleLocalAnswer(selectedIdx);
     });
-});
-
-window.addEventListener("keydown", (e) => {
-    if (e.key && e.key.toLowerCase() === "c") {
-        if (quizScreen.classList.contains("active") && !feedbackOverlay.classList.contains("active")) {
-            const firstButton = optionButtons[0];
-            if (firstButton && !firstButton.disabled) {
-                firstButton.classList.add("selected");
-                optionButtons.forEach((b) => (b.disabled = true));
-                handleLocalAnswer(-99);
-            }
-        }
-    }
 });
 
 function onVictory(data) {

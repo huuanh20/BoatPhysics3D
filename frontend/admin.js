@@ -558,7 +558,9 @@ function trackWinnerFromPos(data) {
         activePlayers[data.id].rank = adminWinners.length;
     }
 
-    if (adminWinners.length >= 3) {
+    const totalPlayersCount = Object.keys(activePlayers).length;
+    const targetLimit = Math.max(1, Math.min(3, totalPlayersCount));
+    if (adminWinners.length >= targetLimit) {
         endGameAsAdmin();
     }
 }
@@ -636,9 +638,12 @@ function sync3DPlayers(playersList) {
     const currentSids = playersList.map(p => p.sid);
     Object.keys(activePlayers).forEach(sid => {
         if (!currentSids.includes(sid)) {
-            // Remove floating div
+            // Remove floating div safely
             if (activePlayers[sid].labelDiv) {
-                document.body.removeChild(activePlayers[sid].labelDiv);
+                const label = activePlayers[sid].labelDiv;
+                if (document.body.contains(label)) {
+                    document.body.removeChild(label);
+                }
             }
             // Remove mesh
             if (activePlayers[sid].mesh) {
@@ -923,7 +928,9 @@ function onGameOver(data) {
                         p.mesh.rotation.z += 0.05; // capsizing tilt
                     } else {
                         scene.remove(p.mesh);
-                        if (p.labelDiv) document.body.removeChild(p.labelDiv);
+                        if (p.labelDiv && document.body.contains(p.labelDiv)) {
+                            document.body.removeChild(p.labelDiv);
+                        }
                         clearInterval(sinkInterval);
                     }
                 }, 30);

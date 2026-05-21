@@ -48,8 +48,6 @@ export async function connectAbly({ clientId, name, color, role }) {
     throw new Error("Ably SDK chưa load. Kiểm tra script CDN trong HTML.");
   }
 
-  await fetchTokenRequest(clientId);
-
   const ably = new Ably.Realtime({
     authCallback: async (_tokenParams, callback) => {
       try {
