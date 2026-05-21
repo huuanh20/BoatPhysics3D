@@ -481,7 +481,7 @@ function paintBoat(boatGroup, colorHex) {
                 if (isHullMat || isHullMesh) {
                     return new THREE.MeshStandardMaterial({
                         color: color,
-                        map: mat.map, // Bảo toàn texture gốc của thuyền (vân gỗ, decal, chi tiết...)
+                        // Không dùng map (baseColor texture) vì texture gốc có màu baked-in sẽ đè lên màu chọn
                         normalMap: mat.normalMap, // Bảo toàn bản đồ độ lồi lõm của bề mặt
                         roughnessMap: mat.roughnessMap,
                         metalnessMap: mat.metalnessMap,

@@ -133,7 +133,193 @@ const sfxExplosion = {
     catch: () => ({ catch: () => {} })
 };
 
-const bgmGameplay = document.getElementById("bgm-gameplay");
+// bgmGameplay is now synthesized via Web Audio API (no HTML audio element needed)
+// This replaces the unreliable external OGG from Wikipedia Commons that kept cutting out
+let battleAudioCtx = null;
+let battleSchedulerId = null;
+let battleNodes = [];
+let battleIsPlaying = false;
+
+function trackBattleNode(node) {
+    battleNodes.push(node);
+    node.onended = () => {
+        const idx = battleNodes.indexOf(node);
+        if (idx !== -1) battleNodes.splice(idx, 1);
+    };
+}
+
+function playBattleDrum(ctx, dest, time, type = 'kick') {
+    if (type === 'kick') {
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(120, time);
+        osc.frequency.exponentialRampToValueAtTime(35, time + 0.12);
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.4, time);
+        g.gain.exponentialRampToValueAtTime(0.001, time + 0.35);
+        osc.connect(g); g.connect(dest);
+        osc.start(time); osc.stop(time + 0.4);
+        trackBattleNode(osc);
+    } else if (type === 'snare') {
+        const bufferSize = ctx.sampleRate * 0.08;
+        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1);
+        const noise = ctx.createBufferSource();
+        noise.buffer = buffer;
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'highpass'; filter.frequency.value = 3500;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.18, time);
+        g.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
+        noise.connect(filter); filter.connect(g); g.connect(dest);
+        noise.start(time); noise.stop(time + 0.12);
+        trackBattleNode(noise);
+    } else if (type === 'hihat') {
+        const bufferSize = ctx.sampleRate * 0.04;
+        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1);
+        const noise = ctx.createBufferSource();
+        noise.buffer = buffer;
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'highpass'; filter.frequency.value = 8000;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.07, time);
+        g.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
+        noise.connect(filter); filter.connect(g); g.connect(dest);
+        noise.start(time); noise.stop(time + 0.06);
+        trackBattleNode(noise);
+    }
+}
+
+function playBattleNote(ctx, dest, freq, time, duration = 0.3, vol = 0.08, type = 'sawtooth') {
+    const osc = ctx.createOscillator();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, time);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, time);
+    g.gain.linearRampToValueAtTime(vol, time + 0.02);
+    g.gain.setValueAtTime(vol * 0.7, time + duration * 0.5);
+    g.gain.exponentialRampToValueAtTime(0.001, time + duration);
+    osc.connect(g); g.connect(dest);
+    osc.start(time); osc.stop(time + duration + 0.05);
+    trackBattleNode(osc);
+}
+
+function startBattleMusic() {
+    if (battleIsPlaying) return;
+    battleIsPlaying = true;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    battleAudioCtx = new AC();
+    if (battleAudioCtx.state === 'suspended') battleAudioCtx.resume();
+    const ctx = battleAudioCtx;
+
+    const reverb = createReverb(ctx, 1.5, 2.5);
+    const compressor = ctx.createDynamicsCompressor();
+    compressor.threshold.value = -18;
+    compressor.ratio.value = 5;
+    const masterGain = ctx.createGain();
+    masterGain.gain.value = 0.6;
+
+    const dryGain = ctx.createGain();
+    dryGain.gain.value = 0.75;
+    dryGain.connect(compressor);
+
+    const wetGain = ctx.createGain();
+    wetGain.gain.value = 0.2;
+    reverb.connect(wetGain);
+    wetGain.connect(compressor);
+
+    compressor.connect(masterGain);
+    masterGain.connect(ctx.destination);
+
+    // Battle pentatonic melody - urgent, heroic, fast
+    const battleMelody = [
+        // Phrase 1: Urgent ascending battle cry
+        { f: 523, d: 0.2 }, { f: 587, d: 0.2 }, { f: 659, d: 0.15 }, { f: 784, d: 0.15 },
+        { f: 880, d: 0.4 }, { f: 784, d: 0.2 }, { f: 659, d: 0.2 }, { f: 0, d: 0.15 },
+        // Phrase 2: Driving power descent
+        { f: 784, d: 0.15 }, { f: 659, d: 0.15 }, { f: 587, d: 0.2 }, { f: 523, d: 0.2 },
+        { f: 440, d: 0.15 }, { f: 523, d: 0.15 }, { f: 587, d: 0.4 }, { f: 0, d: 0.15 },
+        // Phrase 3: Rapid battle march
+        { f: 440, d: 0.1 }, { f: 523, d: 0.1 }, { f: 587, d: 0.1 }, { f: 659, d: 0.1 },
+        { f: 784, d: 0.2 }, { f: 659, d: 0.1 }, { f: 587, d: 0.1 },
+        { f: 523, d: 0.2 }, { f: 440, d: 0.2 }, { f: 0, d: 0.2 },
+        // Phrase 4: Climactic surge
+        { f: 659, d: 0.15 }, { f: 784, d: 0.15 }, { f: 880, d: 0.2 }, { f: 1047, d: 0.4 },
+        { f: 880, d: 0.15 }, { f: 784, d: 0.15 }, { f: 659, d: 0.2 },
+        { f: 587, d: 0.3 }, { f: 523, d: 0.5 }, { f: 0, d: 0.3 },
+    ];
+
+    const BEAT_INTERVAL = 0.214; // ~140 BPM
+    let beatCount = 0;
+    let melodyIdx = 0;
+    let melodyTime = 0;
+    let scheduleAhead = 0.1;
+    let nextBeatTime = ctx.currentTime + 0.3;
+
+    // Aggressive bass drone
+    const bassOsc = ctx.createOscillator();
+    bassOsc.type = 'sawtooth';
+    bassOsc.frequency.value = 87.31; // F2 - more tense than C2
+    const bassFilter = ctx.createBiquadFilter();
+    bassFilter.type = 'lowpass';
+    bassFilter.frequency.value = 250;
+    const bassGain = ctx.createGain();
+    bassGain.gain.setValueAtTime(0, ctx.currentTime);
+    bassGain.gain.linearRampToValueAtTime(0.08, ctx.currentTime + 2.0);
+    bassOsc.connect(bassFilter);
+    bassFilter.connect(bassGain);
+    bassGain.connect(dryGain);
+    bassOsc.start();
+    trackBattleNode(bassOsc);
+
+    function battleScheduler() {
+        while (nextBeatTime < ctx.currentTime + scheduleAhead) {
+            const t = nextBeatTime;
+
+            // Double-time aggressive drums
+            if (beatCount % 4 === 0) playBattleDrum(ctx, dryGain, t, 'kick');
+            if (beatCount % 4 === 2) playBattleDrum(ctx, dryGain, t, 'kick');
+            if (beatCount % 4 === 1) playBattleDrum(ctx, dryGain, t, 'snare');
+            if (beatCount % 4 === 3) playBattleDrum(ctx, dryGain, t, 'snare');
+            // Constant hi-hat pulse
+            playBattleDrum(ctx, dryGain, t, 'hihat');
+
+            // Battle melody
+            if (melodyTime <= 0 && battleMelody[melodyIdx]) {
+                const note = battleMelody[melodyIdx % battleMelody.length];
+                if (note.f > 0) {
+                    playBattleNote(ctx, dryGain, note.f, t, note.d * 0.85, 0.09, 'sawtooth');
+                    playBattleNote(ctx, reverb, note.f, t, note.d * 0.85, 0.03, 'triangle');
+                    // Power octave below for bass weight
+                    if (note.f >= 523) {
+                        playBattleNote(ctx, dryGain, note.f * 0.5, t, note.d * 0.85, 0.04, 'triangle');
+                    }
+                }
+                melodyTime = note.d;
+                melodyIdx++;
+                if (melodyIdx >= battleMelody.length) melodyIdx = 0;
+            }
+            melodyTime -= BEAT_INTERVAL;
+
+            beatCount++;
+            nextBeatTime += BEAT_INTERVAL;
+        }
+        battleSchedulerId = requestAnimationFrame(battleScheduler);
+    }
+    battleSchedulerId = requestAnimationFrame(battleScheduler);
+}
+
+function stopBattleMusic() {
+    battleIsPlaying = false;
+    if (battleSchedulerId) { cancelAnimationFrame(battleSchedulerId); battleSchedulerId = null; }
+    battleNodes.forEach(n => { try { n.stop(); } catch(e){} });
+    battleNodes = [];
+    if (battleAudioCtx) { try { battleAudioCtx.close(); } catch(e){} battleAudioCtx = null; }
+}
 
 // ═══════════════════════════════════════════════════════════════
 // 🎵 WEB AUDIO API: Vietnamese Epic Folk Music Engine
@@ -1819,7 +2005,7 @@ function paintBoat(boatGroup, colorHex) {
                 if (isHullMat || isHullMesh) {
                     return new THREE.MeshStandardMaterial({
                         color: color,
-                        map: mat.map, // Bảo toàn texture gốc của thuyền (vân gỗ, decal, chi tiết...)
+                        // Không dùng map (baseColor texture) vì texture gốc có màu baked-in sẽ đè lên màu chọn
                         normalMap: mat.normalMap, // Bảo toàn bản đồ độ lồi lõm của bề mặt
                         roughnessMap: mat.roughnessMap,
                         metalnessMap: mat.metalnessMap,
@@ -2036,7 +2222,7 @@ function onGameReset() {
     });
     
     // Switch background music from gameplay back to lobby
-    if (bgmGameplay) bgmGameplay.pause();
+    stopBattleMusic();
     startLobbyMusic();
     sfxAmbient.play().catch(() => {});
     
@@ -2120,14 +2306,10 @@ function onGameStarted() {
 
     sfxHorn.play().catch(() => {});
     
-    // Switch background music from lobby to gameplay
+    // Switch background music from lobby to gameplay (fully synthesized - no external URLs)
     stopLobbyMusic();
     sfxAmbient.pause();
-    if (bgmGameplay) {
-        bgmGameplay.volume = 0.3;
-        bgmGameplay.currentTime = 0;
-        bgmGameplay.play().catch(() => {});
-    }
+    startBattleMusic();
 
     if (controls && camera) {
         controls.target.set(0, 10, START_Z - 80);
@@ -2214,7 +2396,7 @@ function onGameOver(data) {
 
     // Stop background music
     stopLobbyMusic();
-    if (bgmGameplay) bgmGameplay.pause();
+    stopBattleMusic();
 
     // Play horn and launch continuous confetti
     sfxHorn.play().catch(() => {});
