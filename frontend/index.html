@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Montserrat:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/style.css?v=12">
+    <link rel="stylesheet" href="/style.css?v=105">
     
     <!-- Ably Realtime -->
     <script src="https://cdn.ably.com/lib/ably.min-2.js"></script>
@@ -115,6 +115,37 @@
                 </button>
             </div>
         </div>
+
+        <!-- Inventory panel for items -->
+        <div class="inventory-panel glass-panel">
+            <div class="inventory-title">⚙️ VẬT PHẨM HỖ TRỢ (ĐẠT CHUỖI ĐỂ NHẬN THÊM)</div>
+            <div class="items-row">
+                <button id="item-radar" class="item-btn" onclick="useSmartRadar();" title="Loại bỏ 2 đáp án sai">
+                    <span class="item-icon">💡</span>
+                    <span class="item-label">Radar 50-50</span>
+                    <span id="count-radar" class="item-badge">1</span>
+                </button>
+                <button id="item-boost" class="item-btn locked" onclick="useTurboBoost();" title="Đạt chuỗi x3 để mở khóa - Tiến nhanh +1 câu">
+                    <span class="item-icon">🚀</span>
+                    <span class="item-label">Phản Lực</span>
+                    <span id="count-boost" class="item-badge">0</span>
+                </button>
+                <button id="item-shield" class="item-btn locked" onclick="useShield();" title="Đạt chuỗi x5 để mở khóa - Chặn 1 câu sai">
+                    <span class="item-icon">🛡️</span>
+                    <span class="item-label">Lá Chắn</span>
+                    <span id="count-shield" class="item-badge">0</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Streak displays -->
+        <div id="streak-container" class="streak-badge-container">
+            <span class="streak-text">CHUỖI: <span id="streak-count">0</span> 🔥</span>
+        </div>
+        
+        <div id="shield-indicator" class="shield-active-badge">
+            <span>🛡️ LÁ CHẮN ĐANG HOẠT ĐỘNG</span>
+        </div>
     </div>
     
     <!-- Answer Feedback Overlay -->
@@ -179,7 +210,11 @@
     <audio id="sfx-explosion" src="https://assets.mixkit.co/active_storage/sfx/2763/2763-84.wav" preload="auto"></audio>
     <audio id="sfx-horn" src="https://assets.mixkit.co/active_storage/sfx/2744/2744-84.wav" preload="auto"></audio>
     
+    <!-- Background Music -->
+    <audio id="bgm-lobby" src="https://upload.wikimedia.org/wikipedia/commons/c/c5/National_Anthem_of_Vietnam.ogg" loop preload="auto"></audio>
+    <audio id="bgm-gameplay" src="/music.m4a" loop preload="auto"></audio>
+    
     <!-- Import Main Logic -->
-    <script type="module" src="/client.js?v=14"></script>
+    <script type="module" src="/client.js?v=105"></script>
 </body>
 </html>

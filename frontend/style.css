@@ -1168,3 +1168,197 @@ body, html {
     box-shadow: 0 6px 16px rgba(231, 76, 60, 0.6) !important;
     filter: brightness(1.1) !important;
 }
+
+/* ==========================================================================
+   Streak & Item Inventory Premium System
+   ========================================================================= */
+.streak-badge-container {
+    position: absolute;
+    top: 100px;
+    right: 35px;
+    background: linear-gradient(135deg, rgba(231, 76, 60, 0.25) 0%, rgba(241, 196, 15, 0.25) 100%);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(241, 196, 15, 0.4);
+    border-radius: 50px;
+    padding: 10px 24px;
+    z-index: 10;
+    box-shadow: 0 4px 20px rgba(241, 196, 15, 0.2);
+    animation: pulseStreak 1.8s infinite alternate;
+}
+
+@keyframes pulseStreak {
+    0% {
+        transform: scale(1);
+        box-shadow: 0 4px 20px rgba(241, 196, 15, 0.2);
+    }
+    100% {
+        transform: scale(1.05);
+        box-shadow: 0 4px 30px rgba(231, 76, 60, 0.4);
+    }
+}
+
+.streak-text {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1rem;
+    font-weight: 900;
+    color: #ffffff;
+    letter-spacing: 1px;
+    text-shadow: 0 0 10px rgba(241, 196, 15, 0.8);
+}
+
+.shield-active-badge {
+    position: absolute;
+    top: 100px;
+    left: 35px;
+    background: rgba(46, 204, 113, 0.2);
+    border: 1px solid rgba(46, 204, 113, 0.5);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-radius: 50px;
+    padding: 10px 24px;
+    z-index: 10;
+    box-shadow: 0 4px 20px rgba(46, 204, 113, 0.2);
+    color: #2ecc71;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 800;
+    letter-spacing: 1px;
+    display: none; /* Hidden by default */
+}
+
+.shield-active-badge.active {
+    display: block;
+    animation: pulseShield 1.5s infinite alternate;
+}
+
+@keyframes pulseShield {
+    0% { transform: scale(1); box-shadow: 0 4px 15px rgba(46, 204, 113, 0.2); }
+    100% { transform: scale(1.03); box-shadow: 0 4px 25px rgba(46, 204, 113, 0.4); }
+}
+
+.inventory-panel {
+    margin-top: 30px;
+    padding: 20px 25px !important;
+    background: rgba(10, 18, 36, 0.4) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 20px !important;
+    width: 100%;
+    max-width: 850px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.inventory-title {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 800;
+    font-size: 0.8rem;
+    color: #8da2c4;
+    letter-spacing: 1.5px;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+.items-row {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+}
+
+.item-btn {
+    background: rgba(6, 9, 19, 0.7);
+    border: 1px solid rgba(0, 242, 254, 0.3);
+    border-radius: 14px;
+    padding: 12px 25px;
+    color: #ffffff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 700;
+    font-size: 0.9rem;
+    position: relative;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.item-btn:hover:not(.locked):not([disabled]) {
+    transform: translateY(-3px);
+    border-color: #00f2fe;
+    box-shadow: 0 8px 20px rgba(0, 242, 254, 0.3), 0 0 10px rgba(0, 242, 254, 0.2);
+}
+
+.item-btn.locked {
+    opacity: 0.3;
+    cursor: not-allowed;
+    border-color: rgba(255, 255, 255, 0.1);
+    filter: grayscale(1);
+}
+
+.item-btn.locked::after {
+    content: "🔒 Lock";
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #e74c3c;
+    color: #ffffff;
+    font-size: 0.65rem;
+    padding: 2px 6px;
+    border-radius: 6px;
+    font-weight: 900;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+}
+
+.item-icon {
+    font-size: 1.2rem;
+}
+
+.item-badge {
+    background: #00f2fe;
+    color: #060913;
+    border-radius: 8px;
+    padding: 2px 7px;
+    font-size: 0.75rem;
+    font-weight: 900;
+    min-width: 18px;
+    text-align: center;
+    box-shadow: 0 0 8px rgba(0, 242, 254, 0.6);
+}
+
+.item-btn.locked .item-badge {
+    background: #555555;
+    color: #ffffff;
+    box-shadow: none;
+}
+
+/* Floating status text */
+.floating-status-text {
+    position: fixed;
+    top: 25%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(10, 18, 36, 0.95);
+    border: 1px solid #00f2fe;
+    color: #ffffff;
+    padding: 15px 30px;
+    border-radius: 50px;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 900;
+    font-size: 1.1rem;
+    letter-spacing: 1px;
+    z-index: 2000;
+    pointer-events: none;
+    box-shadow: 0 10px 40px rgba(0, 242, 254, 0.4), 0 0 20px rgba(0, 242, 254, 0.2);
+    animation: bounceInUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), fadeOutStatus 1s 1.8s forwards;
+}
+
+@keyframes bounceInUp {
+    0% { transform: translate(-50%, 50%) scale(0.7); opacity: 0; }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+@keyframes fadeOutStatus {
+    to { opacity: 0; transform: translate(-50%, -80%) scale(0.9); }
+}

@@ -21,6 +21,11 @@ let quizQueueIdx = 0;
 let quizScore = 0;
 let lastPosPublish = 0;
 
+// Upgraded Streak & Support Items State
+let currentStreak = 0;
+let inventory = { radar: 1, boost: 0, shield: 0 };
+let isShieldActive = false;
+
 // UI Elements
 const lobbyScreen = document.getElementById("lobby-screen");
 const waitingScreen = document.getElementById("waiting-screen");
@@ -45,6 +50,8 @@ const sfxCorrect = document.getElementById("sfx-correct");
 const sfxWrong = document.getElementById("sfx-wrong");
 const sfxExplosion = document.getElementById("sfx-explosion");
 const sfxHorn = document.getElementById("sfx-horn");
+const bgmLobby = document.getElementById("bgm-lobby");
+const bgmGameplay = document.getElementById("bgm-gameplay");
 
 // Game State
 let myPlayer = null;
@@ -324,10 +331,14 @@ function paintBoat(boatGroup, colorHex) {
                 if (isHullMat || isHullMesh) {
                     return new THREE.MeshStandardMaterial({
                         color: color,
-                        roughness: 0.15,
-                        metalness: 0.45,
+                        map: mat.map, // Bảo toàn texture gốc của thuyền (vân gỗ, decal, chi tiết...)
+                        normalMap: mat.normalMap, // Bảo toàn bản đồ độ lồi lõm của bề mặt
+                        roughnessMap: mat.roughnessMap,
+                        metalnessMap: mat.metalnessMap,
+                        roughness: mat.roughness !== undefined ? mat.roughness : 0.15,
+                        metalness: mat.metalness !== undefined ? mat.metalness : 0.45,
                         name: mat.name ? mat.name + "_painted" : "hull_painted",
-                        vertexColors: false // Ensure no vertex colors override
+                        vertexColors: false // Đảm bảo không bị màu vertex đè lên
                     });
                 }
                 return null;
@@ -1363,6 +1374,12 @@ function onGameReset() {
     targetZ = START_Z;
     accelerationEffect = 0.0;
     
+    // Reset Streak and Support Items
+    currentStreak = 0;
+    inventory = { radar: 1, boost: 0, shield: 0 };
+    isShieldActive = false;
+    updateInventoryUI();
+    
     // Clear rival meshes
     Object.keys(activePlayers).forEach(sid => {
         if (activePlayers[sid].mesh) {
@@ -1413,6 +1430,14 @@ function onGameReset() {
     quizScore = 0;
     quizQueueIdx = 0;
     quizQueue = [];
+
+    // Stop gameplay music and restart lobby music on reset
+    if (bgmGameplay) bgmGameplay.pause();
+    if (bgmLobby) {
+        bgmLobby.volume = 0.3;
+        bgmLobby.currentTime = 0;
+        bgmLobby.play().catch(() => {});
+    }
 }
 
 function onGameStarted() {
@@ -1426,6 +1451,15 @@ function onGameStarted() {
     waitingScreen.classList.remove("active");
     quizScreen.classList.add("active");
     sfxHorn.play().catch(() => {});
+    
+    // Switch background music from lobby to gameplay
+    if (bgmLobby) bgmLobby.pause();
+    if (bgmGameplay) {
+        bgmGameplay.volume = 0.3;
+        bgmGameplay.currentTime = 0;
+        bgmGameplay.play().catch(() => {});
+    }
+
     sendNextQuestion();
 }
 
@@ -1447,6 +1481,8 @@ function applyNextQuestion(data) {
     optionButtons.forEach((btn) => {
         btn.classList.remove("selected", "success", "error");
         btn.disabled = false;
+        btn.style.opacity = "1";
+        btn.style.pointerEvents = "auto";
     });
 
     const questionNum = data.num_answered + 1;
@@ -1497,19 +1533,215 @@ function sendNextQuestion(lastCorrect = null) {
     }
 }
 
+// Premium Floating text alerts
+function showFloatingText(text) {
+    const el = document.createElement("div");
+    el.className = "floating-status-text";
+    el.innerText = text;
+    document.body.appendChild(el);
+    setTimeout(() => {
+        el.remove();
+    }, 2800);
+}
+
+// Synchronize inventory UI elements and locked states
+function updateInventoryUI() {
+    const countRadar = document.getElementById("count-radar");
+    const countBoost = document.getElementById("count-boost");
+    const countShield = document.getElementById("count-shield");
+    
+    if (countRadar) countRadar.innerText = inventory.radar;
+    if (countBoost) countBoost.innerText = inventory.boost;
+    if (countShield) countShield.innerText = inventory.shield;
+
+    const btnRadar = document.getElementById("item-radar");
+    const btnBoost = document.getElementById("item-boost");
+    const btnShield = document.getElementById("item-shield");
+
+    if (btnRadar) {
+        if (inventory.radar > 0) btnRadar.classList.remove("locked");
+        else btnRadar.classList.add("locked");
+    }
+    if (btnBoost) {
+        if (inventory.boost > 0) btnBoost.classList.remove("locked");
+        else btnBoost.classList.add("locked");
+    }
+    if (btnShield) {
+        if (inventory.shield > 0) btnShield.classList.remove("locked");
+        else btnShield.classList.add("locked");
+    }
+
+    const shieldIndicator = document.getElementById("shield-indicator");
+    if (shieldIndicator) {
+        if (isShieldActive) shieldIndicator.classList.add("active");
+        else shieldIndicator.classList.remove("active");
+    }
+
+    const streakCount = document.getElementById("streak-count");
+    if (streakCount) {
+        streakCount.innerText = currentStreak;
+    }
+}
+
+// Item 1: Radar 50-50 (Eliminates 2 wrong answers)
+function useSmartRadar() {
+    if (!gameStarted || gamePaused || !myPlayer || quizQueueIdx >= quizQueue.length) return;
+    if (inventory.radar <= 0) {
+        showFloatingText("⚠️ BẠN KHÔNG CÒN RADAR HỖ TRỢ!");
+        return;
+    }
+
+    const qIdx = quizQueue[quizQueueIdx];
+    const correctAnswerIdx = QUESTIONS[qIdx].answer;
+
+    let incorrectButtons = [];
+    optionButtons.forEach(btn => {
+        const idx = parseInt(btn.getAttribute("data-index"));
+        // Only target buttons that are not already disabled or hidden
+        if (idx !== correctAnswerIdx && !btn.disabled && btn.style.opacity !== "0.2") {
+            incorrectButtons.push(btn);
+        }
+    });
+
+    if (incorrectButtons.length === 0) {
+        showFloatingText("⚠️ KHÔNG THỂ SỬ DỤNG VÀO LÚC NÀY!");
+        return;
+    }
+
+    // Spend item
+    inventory.radar -= 1;
+    updateInventoryUI();
+    showFloatingText("💡 KÍCH HOẠT RADAR 50-50!");
+
+    // Randomly pick 2 buttons to eliminate (or all if less than 2 are available)
+    incorrectButtons.sort(() => Math.random() - 0.5);
+    const toEliminate = incorrectButtons.slice(0, 2);
+    toEliminate.forEach(btn => {
+        btn.disabled = true;
+        btn.style.opacity = "0.2";
+        btn.style.pointerEvents = "none";
+    });
+}
+
+// Item 2: Phản Lực / Turbo Boost (+1 câu hỏi instantly, extreme FOV warp)
+function useTurboBoost() {
+    if (!gameStarted || gamePaused || !myPlayer || quizQueueIdx >= quizQueue.length) return;
+    if (inventory.boost <= 0) {
+        showFloatingText("🔒 HÃY ĐẠT CHUỖI X3 ĐỂ NHẬN PHẢN LỰC!");
+        return;
+    }
+
+    // Spend item
+    inventory.boost -= 1;
+    updateInventoryUI();
+
+    showFloatingText("🚀 KÍCH HOẠT PHẢN LỰC! TIẾN NHANH +1 CÂU 🔥");
+
+    // Extreme camera FOV acceleration effect
+    accelerationEffect = 12.0;
+
+    // Award point and advance question queue
+    quizScore += 1;
+    quizQueueIdx += 1;
+
+    currentProgress = Math.min(1, quizScore / TARGET_CORRECT_ANSWERS);
+    myPlayer.progress = currentProgress;
+
+    correctCount.innerText = quizScore;
+    playerProgressBar.style.width = `${currentProgress * 100}%`;
+    playerProgressBoat.style.left = `${currentProgress * 100}%`;
+
+    maybePublishPosition();
+
+    // Play horn sfx for high-speed surge
+    sfxHorn.currentTime = 0;
+    sfxHorn.play().catch(() => {});
+
+    const finished = quizScore >= TARGET_CORRECT_ANSWERS;
+    if (finished && myPlayer.rank == null) {
+        let finishedCount = 0;
+        Object.values(activePlayers).forEach(p => {
+            if (p.progress >= 1.0) {
+                finishedCount++;
+            }
+        });
+        myPlayer.rank = finishedCount + 1;
+        onVictory({ rank: myPlayer.rank });
+        return;
+    }
+
+    if (!finished) {
+        sendNextQuestion(true); // Plays correctness sound and transitions smoothly
+    }
+}
+
+// Item 3: Lá Chắn Sao Vàng / Star Shield (Blocks 1 wrong answer, keeps streak alive)
+function useShield() {
+    if (!gameStarted || gamePaused || !myPlayer || quizQueueIdx >= quizQueue.length) return;
+    if (inventory.shield <= 0) {
+        showFloatingText("🔒 HÃY ĐẠT CHUỖI X5 ĐỂ NHẬN LÁ CHẮN!");
+        return;
+    }
+    if (isShieldActive) {
+        showFloatingText("🛡️ LÁ CHẮN ĐANG HOẠT ĐỘNG SẴN SÀNG!");
+        return;
+    }
+
+    // Spend item
+    inventory.shield -= 1;
+    isShieldActive = true;
+    updateInventoryUI();
+
+    showFloatingText("🛡️ KÍCH HOẠT LÁ CHẮN SAO VÀNG THÀNH CÔNG!");
+}
+
+// Expose support items handlers to the global window scope
+window.useSmartRadar = useSmartRadar;
+window.useTurboBoost = useTurboBoost;
+window.useShield = useShield;
+
 function handleLocalAnswer(answerIdx) {
     if (!gameStarted || gamePaused || !myPlayer) return;
 
     const qIdx = quizQueue[quizQueueIdx];
     const isCorrect = answerIdx === QUESTIONS[qIdx].answer;
 
+    let finalCorrect = isCorrect;
+
     if (isCorrect) {
         quizScore += 1;
         quizQueueIdx += 1;
+        currentStreak += 1;
+
+        // Display Floating Alert and reward item on streak milestone!
+        let streakBonusText = "";
+        if (currentStreak === 3) {
+            inventory.boost += 1;
+            streakBonusText = " 🚀 BẠN NHẬN ĐƯỢC PHẢN LỰC!";
+        } else if (currentStreak === 5) {
+            inventory.shield += 1;
+            streakBonusText = " 🛡️ BẠN NHẬN ĐƯỢC LÁ CHẮN SAO VÀNG!";
+        }
+        
+        showFloatingText(`CHUỖI x${currentStreak}! 🔥${streakBonusText}`);
     } else {
-        quizQueue.push(qIdx);
-        quizQueueIdx += 1;
+        // Check if Lá chắn Sao Vàng is active to absorb wrong answer
+        if (isShieldActive) {
+            isShieldActive = false;
+            finalCorrect = true; // Pretend it was correct to not punish progress
+            quizScore += 1;
+            quizQueueIdx += 1;
+            // Keeps streak alive!
+            showFloatingText("🛡️ LÁ CHẮN SAO VÀNG ĐÃ ĐỠ ĐÒN! CHUỖI ĐƯỢC BẢO TOÀN!");
+        } else {
+            // Normal wrong flow
+            currentStreak = 0;
+            quizQueue.push(qIdx);
+            quizQueueIdx += 1;
+        }
     }
+
+    updateInventoryUI();
 
     currentProgress = Math.min(1, quizScore / TARGET_CORRECT_ANSWERS);
     myPlayer.progress = currentProgress;
@@ -1518,7 +1750,7 @@ function handleLocalAnswer(answerIdx) {
         correctCount.innerText = quizScore;
         playerProgressBar.style.width = `${currentProgress * 100}%`;
         playerProgressBoat.style.left = `${currentProgress * 100}%`;
-        accelerationEffect = 1.0;
+        accelerationEffect = finalCorrect ? 1.0 : 0.0;
     }
 
     maybePublishPosition();
@@ -1538,7 +1770,7 @@ function handleLocalAnswer(answerIdx) {
     }
 
     if (!finished) {
-        sendNextQuestion(isCorrect);
+        sendNextQuestion(finalCorrect);
     }
 }
 
@@ -1571,6 +1803,12 @@ function onVictory(data) {
 }
 
 joinBtn.addEventListener("click", async () => {
+    // Start background lobby music on user interaction
+    if (bgmLobby) {
+        bgmLobby.volume = 0.3;
+        bgmLobby.play().catch(() => {});
+    }
+
     const name = playerNameInput.value.trim();
     if (!name) {
         alert("Vui lòng nhập tên thuyền trưởng của bạn!");
@@ -1650,6 +1888,10 @@ function onGameOver(data) {
     }
     
     gameOverScreen.classList.add("active");
+    
+    // Stop background music
+    if (bgmLobby) bgmLobby.pause();
+    if (bgmGameplay) bgmGameplay.pause();
     
     // Sync final competitor states
     syncCompetitors(data.players);
@@ -1744,6 +1986,7 @@ try {
         throw new Error("WebGL is not supported in this browser/device.");
     }
     init3D();
+    updateInventoryUI();
     animate();
 } catch (e) {
     console.error("3D Graphics Initialization Failed. Applying 2D Fallback.", e);

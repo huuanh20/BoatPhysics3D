@@ -8,6 +8,121 @@ export function createPlayerId() {
   return `player-${Date.now().toString(36)}`;
 }
 
+class MockAblyChannel {
+  constructor(channelName, clientId) {
+    this.name = channelName;
+    this.clientId = clientId;
+    this.listeners = {};
+    this.presenceListeners = [];
+    this.presenceMembers = new Map();
+    this.myPresenceData = null;
+
+    try {
+      this.bc = new BroadcastChannel(channelName);
+      this.bc.onmessage = (e) => {
+        const { type, data, senderId } = e.data;
+        if (type === "pub") {
+          const { eventName, msgData } = data;
+          if (this.listeners[eventName]) {
+            this.listeners[eventName].forEach((cb) =>
+              cb({ data: msgData, clientId: senderId })
+            );
+          }
+        } else if (type === "presence_enter") {
+          this.presenceMembers.set(senderId, data);
+          this.triggerPresence();
+          if (this.myPresenceData) {
+            this.bc.postMessage({
+              type: "presence_reply",
+              data: this.myPresenceData,
+              senderId: this.clientId,
+            });
+          }
+        } else if (type === "presence_reply") {
+          this.presenceMembers.set(senderId, data);
+          this.triggerPresence();
+        } else if (type === "presence_leave") {
+          this.presenceMembers.delete(senderId);
+          this.triggerPresence();
+        } else if (type === "presence_query") {
+          if (this.myPresenceData) {
+            this.bc.postMessage({
+              type: "presence_reply",
+              data: this.myPresenceData,
+              senderId: this.clientId,
+            });
+          }
+        }
+      };
+    } catch (err) {
+      console.warn("BroadcastChannel not supported, running client-only mock.", err);
+    }
+  }
+
+  setPresenceData(data) {
+    this.myPresenceData = data;
+    this.presenceMembers.set(this.clientId, data);
+    if (this.bc) {
+      this.bc.postMessage({
+        type: "presence_enter",
+        data,
+        senderId: this.clientId,
+      });
+    }
+    this.triggerPresence();
+  }
+
+  publish(eventName, msgData) {
+    if (this.bc) {
+      this.bc.postMessage({
+        type: "pub",
+        data: { eventName, msgData },
+        senderId: this.clientId,
+      });
+    }
+  }
+
+  subscribe(eventName, callback) {
+    if (!this.listeners[eventName]) {
+      this.listeners[eventName] = [];
+    }
+    this.listeners[eventName].push(callback);
+  }
+
+  triggerPresence() {
+    this.presenceListeners.forEach((cb) => cb());
+  }
+
+  get presence() {
+    return {
+      subscribe: (callback) => {
+        this.presenceListeners.push(callback);
+      },
+      enter: (data, callback) => {
+        this.setPresenceData(data);
+        if (callback) callback(null);
+        return Promise.resolve();
+      },
+      get: (callback) => {
+        if (this.bc) {
+          this.bc.postMessage({
+            type: "presence_query",
+            senderId: this.clientId,
+          });
+        }
+        const membersList = Array.from(this.presenceMembers.entries()).map(
+          ([cid, data]) => ({
+            clientId: cid,
+            data,
+          })
+        );
+        if (callback) callback(null, membersList);
+        return Promise.resolve(membersList);
+      },
+    };
+  }
+}
+
 function waitForConnection(ably) {
   return new Promise((resolve, reject) => {
     if (ably.connection.state === "connected") {
@@ -44,30 +159,74 @@ async function fetchTokenRequest(clientId) {
 }
 
 export async function connectAbly({ clientId, name, color, role }) {
-  if (typeof Ably === "undefined") {
-    throw new Error("Ably SDK chưa load. Kiểm tra script CDN trong HTML.");
+  let ablyObj = null;
+  let channelObj = null;
+  let useMock = false;
+
+  // Quick check if /api/ably-token is working and reachable
+  try {
+    if (typeof Ably === "undefined") {
+      useMock = true;
+    } else {
+      const authUrl = `/api/ably-token?clientId=test-probe`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 1200); // 1.2s timeout
+      
+      const res = await fetch(authUrl, { 
+        credentials: "same-origin",
+        signal: controller.signal 
+      });
+      clearTimeout(timeoutId);
+      
+      if (!res.ok) {
+        useMock = true;
+      }
+    }
+  } catch (err) {
+    useMock = true;
   }
 
-  const ably = new Ably.Realtime({
-    authCallback: async (_tokenParams, callback) => {
-      try {
-        const tokenRequest = await fetchTokenRequest(clientId);
-        callback(null, tokenRequest);
-      } catch (err) {
-        callback(err.message || String(err), null);
-      }
-    },
-    clientId,
-    echoMessages: false,
-  });
+  if (useMock) {
+    console.warn("Local probe failed or Ably missing. Falling back to local BroadcastChannel mock.");
+    channelObj = new MockAblyChannel(CHANNEL_NAME, clientId);
+  } else {
+    try {
+      const ably = new Ably.Realtime({
+        authCallback: async (_tokenParams, callback) => {
+          try {
+            const tokenRequest = await fetchTokenRequest(clientId);
+            callback(null, tokenRequest);
+          } catch (err) {
+            callback(err.message || String(err), null);
+          }
+        },
+        clientId,
+        echoMessages: false,
+      });
 
-  await waitForConnection(ably);
-  const channel = ably.channels.get(CHANNEL_NAME);
-  await presenceEnter(channel, { name, color, role });
-  return { ably, channel, clientId };
+      await waitForConnection(ably);
+      ablyObj = ably;
+      channelObj = ably.channels.get(CHANNEL_NAME);
+    } catch (err) {
+      console.warn(
+        "Ably connection failed, falling back to local BroadcastChannel mock:",
+        err
+      );
+      channelObj = new MockAblyChannel(CHANNEL_NAME, clientId);
+    }
+  }
+
+  await presenceEnter(channelObj, { name, color, role });
+  if (channelObj instanceof MockAblyChannel && channelObj.bc) {
+    channelObj.bc.postMessage({
+      type: "presence_query",
+      senderId: clientId,
+    });
+  }
+
+  return { ably: ablyObj, channel: channelObj, clientId };
 }
 
-/** ably.min-1.js (callback) vs ably.min-2.js (promise) — normalize to array */
 function normalizePresenceList(raw) {
   if (Array.isArray(raw)) return raw;
   if (raw?.items && Array.isArray(raw.items)) return raw.items;
@@ -120,3 +279,4 @@ export function presenceToPlayers(members) {
       rank: m.data?.rank ?? null,
     }));
 }
+

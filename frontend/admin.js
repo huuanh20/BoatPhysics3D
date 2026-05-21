@@ -28,6 +28,8 @@ const pauseGameBtn = document.getElementById("pause-game-btn");
 const sfxAmbient = document.getElementById("sfx-ambient");
 const sfxHorn = document.getElementById("sfx-horn");
 const sfxExplosion = document.getElementById("sfx-explosion");
+const bgmLobby = document.getElementById("bgm-lobby");
+const bgmGameplay = document.getElementById("bgm-gameplay");
 
 // Game State
 let activePlayers = {}; // map of sid -> player data (mesh, labelDiv, name, color, progress, rank)
@@ -1306,6 +1308,10 @@ function animateExplosions() {
 // Play background music once admin interacts
 document.body.addEventListener("click", () => {
     sfxAmbient.play().catch(() => {});
+    if (bgmLobby) {
+        bgmLobby.volume = 0.3;
+        bgmLobby.play().catch(() => {});
+    }
 }, { once: true });
 
 function updateLobbyUI(players) {
@@ -1441,10 +1447,14 @@ function paintBoat(boatGroup, colorHex) {
                 if (isHullMat || isHullMesh) {
                     return new THREE.MeshStandardMaterial({
                         color: color,
-                        roughness: 0.15,
-                        metalness: 0.45,
+                        map: mat.map, // Bảo toàn texture gốc của thuyền (vân gỗ, decal, chi tiết...)
+                        normalMap: mat.normalMap, // Bảo toàn bản đồ độ lồi lõm của bề mặt
+                        roughnessMap: mat.roughnessMap,
+                        metalnessMap: mat.metalnessMap,
+                        roughness: mat.roughness !== undefined ? mat.roughness : 0.15,
+                        metalness: mat.metalness !== undefined ? mat.metalness : 0.45,
                         name: mat.name ? mat.name + "_painted" : "hull_painted",
-                        vertexColors: false // Ensure no vertex colors override
+                        vertexColors: false // Đảm bảo không bị màu vertex đè lên
                     });
                 }
                 return null;
@@ -1631,6 +1641,14 @@ function onGameReset() {
     liveLeaderboard.classList.remove("active");
     podiumScreen.classList.remove("active");
     
+    // Switch background music from gameplay back to lobby
+    if (bgmGameplay) bgmGameplay.pause();
+    if (bgmLobby) {
+        bgmLobby.volume = 0.3;
+        bgmLobby.currentTime = 0;
+        bgmLobby.play().catch(() => {});
+    }
+    
     if (pauseGameBtn) {
         pauseGameBtn.style.display = "none";
         pauseGameBtn.innerText = "TẠM DỪNG";
@@ -1682,6 +1700,15 @@ function onGameStarted() {
     }
 
     sfxHorn.play().catch(() => {});
+    
+    // Switch background music from lobby to gameplay
+    if (bgmLobby) bgmLobby.pause();
+    if (bgmGameplay) {
+        bgmGameplay.volume = 0.3;
+        bgmGameplay.currentTime = 0;
+        bgmGameplay.play().catch(() => {});
+    }
+
     controls.target.set(0, 10, START_Z - 80);
     camera.position.set(220, 140, START_Z + 160);
     refreshAdminPresence();
@@ -1722,6 +1749,10 @@ function onGameOver(data) {
     if (pauseGameBtn) {
         pauseGameBtn.style.display = "none";
     }
+
+    // Stop background music
+    if (bgmLobby) bgmLobby.pause();
+    if (bgmGameplay) bgmGameplay.pause();
 
     // Play horn and launch continuous confetti
     sfxHorn.play().catch(() => {});
