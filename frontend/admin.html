@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/style.css?v=105">
+    <link rel="stylesheet" href="/style.css?v=130">
     
     <!-- Ably Realtime -->
     <script src="https://cdn.ably.com/lib/ably.min-2.js"></script>
@@ -47,28 +47,53 @@
     
     <!-- Admin Controls Overlay -->
     <div id="admin-panel" class="admin-floating-panel glass-panel active">
-        <h2 class="glow-text">PHÒNG CHỜ THI ĐẤU</h2>
-        <p class="panel-subtitle">Quản lý thuyền trưởng tham gia ra khơi</p>
-        
-        <div class="players-lobby-list">
-            <div class="lobby-header">
-                THUYỀN TRƯỞNG ĐÃ KẾT NỐI (<span id="connected-count">0</span>)
-            </div>
-            <div id="lobby-players-grid" class="players-grid">
-                <!-- Dynamic player list -->
-                <div class="no-players">Đang đợi các thuyền trưởng tham gia...</div>
-            </div>
-        </div>
-        
+        <h2 class="glow-text text-left">PHÒNG CHỜ THI ĐẤU</h2>
+        <h3 class="panel-subtitle">BẢNG ĐIỀU KHIỂN HỆ THỐNG</h3>
+        <p class="panel-desc">Hệ thống điều khiển thuyền buồm 3D thời gian thực. Bấm nút bên dưới để phát lệnh xuất phát cho tất cả thuyền buồm.</p>
+        <div class="leaderboard-divider"></div>
         <button id="start-game-btn" class="glow-btn start-btn" disabled>BẮT ĐẦU CHƠI</button>
     </div>
     
-    <!-- Live Leaderboard Overlaid on 3D Race Screen -->
+    <!-- Connected Players Panel (Docked Right during Lobby) -->
+    <div id="lobby-players-panel" class="glass-panel active">
+        <h2 class="glow-text text-left">DANH SÁCH THÀNH VIÊN</h2>
+        <h3 class="panel-subtitle">THUYỀN TRƯỞNG SẴN SÀNG (<span id="connected-count">0</span>)</h3>
+        <p class="panel-desc">Danh sách thuyền trưởng đã cập bến phòng chờ và sẵn sàng ra khơi</p>
+        <div class="leaderboard-divider"></div>
+        <div id="lobby-players-grid" class="players-grid">
+            <!-- Dynamic player list -->
+            <div class="no-players">Đang đợi các thuyền trưởng tham gia...</div>
+        </div>
+    </div>
+    
+    <!-- Admin Status Panel Overlaid on 3D Race Screen (Docked Left) -->
+    <div id="admin-status-panel" class="glass-panel">
+        <h2 class="glow-text text-left">BẢNG ĐIỀU KHIỂN ADMIN</h2>
+        <h3 class="panel-subtitle">GIẢI ĐẤU QUỐC TẾ</h3>
+        <p class="panel-desc">Quản lý thuyền trưởng tham gia ra khơi</p>
+        <div class="leaderboard-divider"></div>
+        <div id="status-players-list">
+            <!-- Real-time player list with active statuses -->
+        </div>
+    </div>
+    
+    <!-- Live Leaderboard Overlaid on 3D Race Screen (Docked Right) -->
     <div id="live-leaderboard" class="glass-panel">
-        <h3 class="leaderboard-title">BẢNG XẾP HẠNG THỜI GIAN THỰC</h3>
+        <h2 class="glow-text text-left">XẾP HẠNG THI ĐẤU</h2>
+        <h3 class="panel-subtitle">TIẾN ĐỘ ĐUA THUYỀN</h3>
+        <p class="panel-desc">Vị trí thực tế của các thuyền trên biển</p>
         <div class="leaderboard-divider"></div>
         <div id="leaderboard-list">
-            <!-- Real-time player progress list -->
+            <!-- Real-time player progress bars -->
+        </div>
+    </div>
+    
+    <!-- Event Log Panel for Active Battles (Docked Bottom Left) -->
+    <div id="admin-event-log-panel" class="glass-panel admin-event-log-panel">
+        <h3 class="event-log-title">LOG SỰ KIỆN TRẬN ĐẤU</h3>
+        <div class="leaderboard-divider"></div>
+        <div id="log-events-list" class="event-log-list">
+            <!-- Real-time dynamic game events list -->
         </div>
     </div>
     
@@ -119,16 +144,12 @@
         <button onclick="window.location.reload();" class="glow-btn restart-btn">KHỞI ĐỘNG GIẢI MỚI</button>
     </div>
     
-    <!-- Sound Effects -->
-    <audio id="sfx-ambient" src="https://assets.mixkit.co/active_storage/sfx/2568/2568-84.wav" loop preload="auto"></audio>
-    <audio id="sfx-horn" src="https://assets.mixkit.co/active_storage/sfx/2744/2744-84.wav" preload="auto"></audio>
-    <audio id="sfx-explosion" src="https://assets.mixkit.co/active_storage/sfx/2763/2763-84.wav" preload="auto"></audio>
+    <!-- SFX are now synthesized via Web Audio API in admin.js (no external URLs needed) -->
     
-    <!-- Background Music -->
-    <audio id="bgm-lobby" src="https://upload.wikimedia.org/wikipedia/commons/c/c5/National_Anthem_of_Vietnam.ogg" loop preload="auto"></audio>
-    <audio id="bgm-gameplay" src="/music.m4a" loop preload="auto"></audio>
+    <!-- Background Music (Lobby is synthesized via Web Audio API in admin.js) -->
+    <audio id="bgm-gameplay" src="https://upload.wikimedia.org/wikipedia/commons/e/e0/Dramatic_Trailer_by_Rafael_Krux.ogg" loop preload="auto"></audio>
     
     <!-- Import Admin Logic -->
-    <script type="module" src="/admin.js?v=105"></script>
+    <script type="module" src="/admin.js?v=130"></script>
 </body>
 </html>

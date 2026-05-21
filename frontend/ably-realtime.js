@@ -178,7 +178,8 @@ export async function connectAbly({ clientId, name, color, role }) {
       });
       clearTimeout(timeoutId);
       
-      if (!res.ok) {
+      const contentType = res.headers.get("content-type") || "";
+      if (!res.ok || !contentType.includes("application/json")) {
         useMock = true;
       }
     }

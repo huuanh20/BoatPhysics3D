@@ -45,13 +45,163 @@ const questionText = document.getElementById("question-text");
 const optionButtons = document.querySelectorAll(".option-btn");
 const pausedOverlay = document.getElementById("paused-overlay");
 
-// Sound Effects
-const sfxCorrect = document.getElementById("sfx-correct");
-const sfxWrong = document.getElementById("sfx-wrong");
-const sfxExplosion = document.getElementById("sfx-explosion");
-const sfxHorn = document.getElementById("sfx-horn");
-const bgmLobby = document.getElementById("bgm-lobby");
-const bgmGameplay = document.getElementById("bgm-gameplay");
+// Sound Effects (synthesized via Web Audio API - no HTML audio elements needed)
+const sfxCorrect = null; // synthesized in playSynthesizedSound('correct')
+const sfxWrong = null;   // synthesized in playSynthesizedSound('wrong')
+const sfxExplosion = null; // synthesized in playSynthesizedSound('explosion')
+const sfxHorn = null;    // synthesized in playSynthesizedSound('horn')
+const bgmLobby = null;
+const bgmGameplay = null;
+
+// --- WEB AUDIO API REAL-TIME LOW-LATENCY SYNTHESIZER ---
+let audioCtx = null;
+function getAudioContext() {
+    if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) {
+            audioCtx = new AudioContext();
+        }
+    }
+    if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+    return audioCtx;
+}
+
+function playSynthesizedSound(type) {
+    try {
+        const ctx = getAudioContext();
+        if (!ctx) return;
+        const now = ctx.currentTime;
+
+        if (type === 'correct') {
+            // Sweet chime: Arpeggio of C5 -> E5 -> G5 -> C6
+            const notes = [523.25, 659.25, 783.99, 1046.50];
+            notes.forEach((freq, idx) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+                
+                gain.gain.setValueAtTime(0, now + idx * 0.08);
+                gain.gain.linearRampToValueAtTime(0.12, now + idx * 0.08 + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.35);
+                
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                
+                osc.start(now + idx * 0.08);
+                osc.stop(now + idx * 0.08 + 0.35);
+            });
+        } else if (type === 'wrong') {
+            // Gameshow buzzer sound: Twin sawtooth/triangle oscillators at 130Hz & 132Hz (thick beating)
+            const osc1 = ctx.createOscillator();
+            const osc2 = ctx.createOscillator();
+            const gain = ctx.createGain();
+            const filter = ctx.createBiquadFilter();
+
+            osc1.type = 'sawtooth';
+            osc2.type = 'sawtooth';
+            
+            osc1.frequency.setValueAtTime(130, now);
+            osc2.frequency.setValueAtTime(132, now);
+            
+            // Slide pitch down slightly
+            osc1.frequency.linearRampToValueAtTime(95, now + 0.45);
+            osc2.frequency.linearRampToValueAtTime(97, now + 0.45);
+
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(350, now);
+
+            gain.gain.setValueAtTime(0, now);
+            gain.gain.linearRampToValueAtTime(0.2, now + 0.05);
+            gain.gain.linearRampToValueAtTime(0.001, now + 0.45);
+
+            osc1.connect(filter);
+            osc2.connect(filter);
+            filter.connect(gain);
+            gain.connect(ctx.destination);
+
+            osc1.start(now);
+            osc2.start(now);
+            osc1.stop(now + 0.45);
+            osc2.stop(now + 0.45);
+        } else if (type === 'horn') {
+            // Rich ship start horn: 180Hz + 220Hz + 270Hz (multi-tone chord)
+            const tones = [180, 220, 270];
+            const gain = ctx.createGain();
+            
+            tones.forEach(freq => {
+                const osc = ctx.createOscillator();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(freq, now);
+                osc.connect(gain);
+                osc.start(now);
+                osc.stop(now + 1.2);
+            });
+            
+            gain.gain.setValueAtTime(0, now);
+            gain.gain.linearRampToValueAtTime(0.25, now + 0.1);
+            gain.gain.setValueAtTime(0.25, now + 0.8);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+            
+            gain.connect(ctx.destination);
+        } else if (type === 'explosion') {
+            // Synthesized rumble explosion using bandpassed white noise
+            const bufferSize = ctx.sampleRate * 1.5;
+            const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+            
+            const noise = ctx.createBufferSource();
+            noise.buffer = buffer;
+            
+            const filter = ctx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(250, now);
+            filter.frequency.exponentialRampToValueAtTime(20, now + 1.2);
+            
+            const gain = ctx.createGain();
+            gain.gain.setValueAtTime(0.35, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 1.4);
+            
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(ctx.destination);
+            
+            noise.start(now);
+            noise.stop(now + 1.5);
+        }
+    } catch (e) {
+        console.warn("Real-time audio synthesizer failed:", e);
+    }
+}
+
+function triggerSFX(type) {
+    let audioElement = null;
+    if (type === 'correct') {
+        audioElement = sfxCorrect;
+    } else if (type === 'wrong') {
+        audioElement = sfxWrong;
+    } else if (type === 'explosion') {
+        audioElement = sfxExplosion;
+    } else if (type === 'horn') {
+        audioElement = sfxHorn;
+    }
+
+    if (audioElement) {
+        audioElement.currentTime = 0;
+        audioElement.play().catch((err) => {
+            console.warn(`HTML Audio play failed for ${type}, relying on synthesized audio.`, err);
+        });
+    }
+    
+    // Always trigger real-time synthesis to ensure immediate feedback and bypass network locks!
+    playSynthesizedSound(type);
+}
 
 // Game State
 let myPlayer = null;
@@ -156,7 +306,7 @@ function attachVietnamFlag(boat) {
     const poleGeom = new THREE.CylinderGeometry(0.06, 0.06, 3.8);
     const poleMat = new THREE.MeshStandardMaterial({ color: 0xbdc3c7, metalness: 0.9 });
     const pole = new THREE.Mesh(poleGeom, poleMat);
-    pole.rotation.x = -0.15; // Slanted backward slightly
+    pole.rotation.x = 0; // Vertical pole
     pole.position.y = 1.6;
     flagGroup.add(pole);
     
@@ -167,7 +317,7 @@ function attachVietnamFlag(boat) {
         side: THREE.DoubleSide 
     });
     const flag = new THREE.Mesh(flagGeom, flagMat);
-    flag.position.set(1.1, 2.8, 0);
+    flag.position.set(0, 2.8, 1.1); // Gắn cờ vào cột cờ tại z = 0 và bay về phía sau (+Z)
     flag.rotation.y = Math.PI / 2; // Facing sideways
     flagGroup.add(flag);
     
@@ -232,7 +382,7 @@ function init3D() {
         sunDirection: new THREE.Vector3(),
         sunColor: 0xffffff,
         waterColor: 0x004e5a, // Deep blue-cyan tropical water
-        distortionScale: 3.7,
+        distortionScale: 1.5,
         fog: false,
     });
     water.rotation.x = -Math.PI / 2;
@@ -272,7 +422,7 @@ function init3D() {
     loader.load("helpers/boat/scene.gltf", (gltf) => {
         boatMesh = gltf.scene;
         boatMesh.scale.set(3, 3, 3);
-        boatMesh.position.set(0, 13, START_Z);
+        boatMesh.position.set(0, 24.0, START_Z);
         boatMesh.rotation.y = Math.PI * 0.5; // Face towards -Z (France)
         
         boatMesh.traverse((child) => {
@@ -1000,7 +1150,7 @@ function syncCompetitors(playersList) {
                 const boat = gltf.scene;
                 boat.scale.set(2.5, 2.5, 2.5);
                 const currentZ = START_Z - ((activePlayers[p.sid] ? activePlayers[p.sid].progress : p.progress || 0.0) * TOTAL_DIST);
-                boat.position.set(laneX, 13, currentZ);
+                boat.position.set(laneX, 24.0, currentZ);
                 boat.rotation.y = Math.PI * 0.5; // Face towards -Z (France)
                 
                 boat.traverse((child) => {
@@ -1072,13 +1222,11 @@ function animate() {
                 const pitch = Math.sin(time * 1.4 + p.heaveOffset) * 0.015;
                 const roll = Math.cos(time * 1.0 + p.heaveOffset) * 0.025;
                 
-                p.mesh.position.y = 12.8 + bob;
+                p.mesh.position.y = 24.0 + bob;
                 p.mesh.rotation.x = pitch;
                 p.mesh.rotation.z = roll;
                 
-                if (p.mesh.userData && p.mesh.userData.flagMesh) {
-                    p.mesh.userData.flagMesh.rotation.z = Math.sin(time * 10 + p.heaveOffset) * 0.08;
-                }
+                // Lá cờ của đối thủ đứng yên uy nghiêm
             }
         });
 
@@ -1098,18 +1246,16 @@ function animate() {
             const pitch = Math.sin(time * 1.5) * 0.02;
             const roll = Math.cos(time * 1.0) * 0.03;
             
-            boatMesh.position.y = 12.8 + bob;
+            boatMesh.position.y = 24.0 + bob;
             boatMesh.rotation.x = pitch;
             boatMesh.rotation.z = roll;
             boatMesh.rotation.y = Math.PI * 0.5 + Math.sin(time * 0.5) * 0.01;
 
-            if (boatMesh.userData && boatMesh.userData.flagMesh) {
-                boatMesh.userData.flagMesh.rotation.z = Math.sin(time * 10) * 0.08;
-            }
+            // Lá cờ của người chơi đứng yên uy nghiêm
 
             // G-FORCE DYNAMIC CAMERA CHASE FOLLOW
             const idealCamX = myLaneX;
-            const idealCamY = 20.3; // Stable height (12.8 + 7.5) to keep camera perfectly steady
+            const idealCamY = 31.5; // Stable height (24.0 + 7.5) to keep camera perfectly steady
             const idealCamZ = boatMesh.position.z + 24.0; // Ideal distance behind
 
             // Tight follow along X and Y
@@ -1134,7 +1280,7 @@ function animate() {
             // Camera looks forward at stable height to eliminate vertical jitter
             const lookTarget = new THREE.Vector3(
                 myLaneX,
-                15.3, // Stable height (12.8 + 2.5) to keep camera perfectly steady
+                26.5, // Stable height (24.0 + 2.5) to keep camera perfectly steady
                 boatMesh.position.z - 100
             );
             camera.lookAt(lookTarget);
@@ -1391,7 +1537,7 @@ function onGameReset() {
     usedLanes.fill(false);
     
     if (boatMesh) {
-        boatMesh.position.set(0, 13, START_Z);
+        boatMesh.position.set(0, 24.0, START_Z);
         boatMesh.rotation.set(0, Math.PI, 0); // face forward (-Z)
         boatMesh.scale.set(3, 3, 3); // restore scale if it was blown up/shrunk
         boatMesh.userData = {};
@@ -1450,7 +1596,7 @@ function onGameStarted() {
 
     waitingScreen.classList.remove("active");
     quizScreen.classList.add("active");
-    sfxHorn.play().catch(() => {});
+    triggerSFX("horn");
     
     // Switch background music from lobby to gameplay
     if (bgmLobby) bgmLobby.pause();
@@ -1514,13 +1660,11 @@ function sendNextQuestion(lastCorrect = null) {
         if (lastCorrect) {
             feedbackTitle.innerText = "CHÍNH XÁC!";
             feedbackDesc.innerText = "Tuyệt vời! Thuyền của bạn đang lướt nhanh ra khơi...";
-            sfxCorrect.currentTime = 0;
-            sfxCorrect.play().catch(() => {});
+            triggerSFX("correct");
         } else {
             feedbackTitle.innerText = "SAI MẤT RỒI!";
             feedbackDesc.innerText = "Đừng lo! Câu hỏi này đã được xếp xuống cuối hàng để bạn làm lại.";
-            sfxWrong.currentTime = 0;
-            sfxWrong.play().catch(() => {});
+            triggerSFX("wrong");
         }
 
         setTimeout(() => {
@@ -1653,9 +1797,19 @@ function useTurboBoost() {
 
     maybePublishPosition();
 
+    if (ablyChannel && myPlayer) {
+        ablyChannel.publish("answer", {
+            id: myPlayer.id,
+            name: myPlayer.name,
+            color: myPlayer.color,
+            isCorrect: true,
+            type: "boost",
+            timestamp: Date.now()
+        });
+    }
+
     // Play horn sfx for high-speed surge
-    sfxHorn.currentTime = 0;
-    sfxHorn.play().catch(() => {});
+    triggerSFX("horn");
 
     const finished = quizScore >= TARGET_CORRECT_ANSWERS;
     if (finished && myPlayer.rank == null) {
@@ -1755,6 +1909,17 @@ function handleLocalAnswer(answerIdx) {
 
     maybePublishPosition();
 
+    if (ablyChannel && myPlayer) {
+        ablyChannel.publish("answer", {
+            id: myPlayer.id,
+            name: myPlayer.name,
+            color: myPlayer.color,
+            isCorrect: finalCorrect,
+            type: "normal",
+            timestamp: Date.now()
+        });
+    }
+
     const finished = quizScore >= TARGET_CORRECT_ANSWERS;
     if (finished && myPlayer.rank == null) {
         // Calculate dynamic rank based on competitors who have already finished (progress >= 1.0)
@@ -1798,11 +1963,12 @@ function onVictory(data) {
     document.getElementById("victory-rank").innerText = data.rank;
     
     // Play sound and trigger confetti explosion
-    sfxHorn.play().catch(() => {});
+    triggerSFX("horn");
     triggerConfetti();
 }
 
 joinBtn.addEventListener("click", async () => {
+    console.log("🔵 JOIN BUTTON CLICKED!"); // DEBUG
     // Start background lobby music on user interaction
     if (bgmLobby) {
         bgmLobby.volume = 0.3;
@@ -1841,7 +2007,7 @@ joinBtn.addEventListener("click", async () => {
         waitingScreen.classList.add("active");
         document.getElementById("player-welcome-msg").innerText =
             `Chào Thuyền Trưởng ${myPlayer.name}, thuyền của bạn đã ở vạch xuất phát!`;
-        sfxHorn.play().catch(() => {});
+        triggerSFX("horn");
 
         await refreshLobbyFromPresence();
     } catch (err) {
@@ -1919,8 +2085,7 @@ function onGameOver(data) {
         
         // Trigger visual screen shake & explosion sound
         document.body.classList.add("screen-shake");
-        sfxExplosion.currentTime = 0;
-        sfxExplosion.play().catch(() => {});
+        triggerSFX("explosion");
         
         // Explode other rival loser boats too
         const winnerSids = data.winners.map(w => w.sid);
@@ -2010,22 +2175,26 @@ function apply2DFallback() {
     }
 }
 
-// Ngăn chặn copy câu hỏi và câu trả lời (Ràng buộc nghiệp vụ chống gian lận)
+// Ngăn chặn copy câu hỏi và câu trả lời (Ràng buộc nghiệp vụ chống gian lận - Chỉ kích hoạt ở production)
 document.addEventListener("contextmenu", (e) => {
+    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") return;
     e.preventDefault();
     showCheatWarning("Không thể mở menu chuột phải. Sao chép câu hỏi và câu trả lời bị nghiêm cấm!");
 });
 
 document.addEventListener("copy", (e) => {
+    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") return;
     e.preventDefault();
     showCheatWarning("Hành vi sao chép nội dung bị nghiêm cấm để bảo vệ tính công bằng!");
 });
 
 document.addEventListener("cut", (e) => {
+    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") return;
     e.preventDefault();
 });
 
 document.addEventListener("keydown", (e) => {
+    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") return;
     // Chặn F12
     if (e.key === "F12") {
         e.preventDefault();

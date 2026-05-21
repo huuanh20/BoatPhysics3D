@@ -15,21 +15,338 @@ let gamePaused = false;
 
 // UI Elements
 const adminPanel = document.getElementById("admin-panel");
+const lobbyPlayersPanel = document.getElementById("lobby-players-panel");
 const startGameBtn = document.getElementById("start-game-btn");
 const resetGameBtn = document.getElementById("reset-game-btn");
 const connectedCount = document.getElementById("connected-count");
 const lobbyPlayersGrid = document.getElementById("lobby-players-grid");
 const liveLeaderboard = document.getElementById("live-leaderboard");
 const leaderboardList = document.getElementById("leaderboard-list");
+const adminStatusPanel = document.getElementById("admin-status-panel");
+const statusPlayersList = document.getElementById("status-players-list");
 const podiumScreen = document.getElementById("podium-screen");
 const pauseGameBtn = document.getElementById("pause-game-btn");
+const adminEventLogPanel = document.getElementById("admin-event-log-panel");
+const logEventsList = document.getElementById("log-events-list");
 
-// Sound Effects
-const sfxAmbient = document.getElementById("sfx-ambient");
-const sfxHorn = document.getElementById("sfx-horn");
-const sfxExplosion = document.getElementById("sfx-explosion");
-const bgmLobby = document.getElementById("bgm-lobby");
+// ═══════════════════════════════════════════════════════════════
+// 🔊 WEB AUDIO API: Synthesized Sound Effects (no external URLs)
+// Replaces broken mixkit.co URLs that return 403 Forbidden
+// ═══════════════════════════════════════════════════════════════
+let sfxAudioCtx = null;
+function getSfxCtx() {
+    if (!sfxAudioCtx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) sfxAudioCtx = new AC();
+    }
+    if (sfxAudioCtx && sfxAudioCtx.state === 'suspended') sfxAudioCtx.resume();
+    return sfxAudioCtx;
+}
+
+// Ambient ocean loop (synthesized white noise filtered)
+let ambientLoopNode = null;
+let ambientGainNode = null;
+const sfxAmbient = {
+    play: () => {
+        const ctx = getSfxCtx(); if (!ctx) return Promise.resolve();
+        if (ambientLoopNode) return Promise.resolve();
+        // Create looping ocean wash using filtered noise
+        const bufLen = ctx.sampleRate * 4;
+        const buf = ctx.createBuffer(2, bufLen, ctx.sampleRate);
+        for (let ch = 0; ch < 2; ch++) {
+            const d = buf.getChannelData(ch);
+            for (let i = 0; i < bufLen; i++) {
+                // Slowly undulating ocean: amplitude modulated noise
+                const env = 0.3 + 0.7 * Math.sin(2 * Math.PI * i / bufLen);
+                d[i] = (Math.random() * 2 - 1) * env * 0.5;
+            }
+        }
+        const src = ctx.createBufferSource();
+        src.buffer = buf; src.loop = true;
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'lowpass'; filter.frequency.value = 800;
+        ambientGainNode = ctx.createGain();
+        ambientGainNode.gain.value = 0.08;
+        src.connect(filter); filter.connect(ambientGainNode); ambientGainNode.connect(ctx.destination);
+        src.start(); ambientLoopNode = src;
+        return Promise.resolve();
+    },
+    pause: () => {
+        if (ambientLoopNode) { try { ambientLoopNode.stop(); } catch(e){} ambientLoopNode = null; }
+    },
+    catch: () => ({ catch: () => {} })
+};
+
+// Ship horn synthesizer
+const sfxHorn = {
+    play: () => {
+        const ctx = getSfxCtx(); if (!ctx) return Promise.resolve();
+        const now = ctx.currentTime;
+        const tones = [180, 220, 270]; // multi-tone foghorn chord
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.25, now + 0.1);
+        gain.gain.setValueAtTime(0.25, now + 0.8);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+        gain.connect(ctx.destination);
+        tones.forEach(freq => {
+            const osc = ctx.createOscillator();
+            osc.type = 'triangle'; osc.frequency.value = freq;
+            osc.connect(gain); osc.start(now); osc.stop(now + 1.2);
+        });
+        return Promise.resolve();
+    },
+    catch: () => ({ catch: () => {} })
+};
+
+// Explosion synthesizer
+const sfxExplosion = {
+    play: () => {
+        const ctx = getSfxCtx(); if (!ctx) return Promise.resolve();
+        const now = ctx.currentTime;
+        // Low rumble + noise burst
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(80, now);
+        osc.frequency.exponentialRampToValueAtTime(20, now + 0.8);
+        const oscGain = ctx.createGain();
+        oscGain.gain.setValueAtTime(0.4, now);
+        oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
+        osc.connect(oscGain); oscGain.connect(ctx.destination);
+        osc.start(now); osc.stop(now + 1.0);
+        // Noise burst
+        const bufLen = ctx.sampleRate * 1.2;
+        const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < bufLen; i++) d[i] = Math.random() * 2 - 1;
+        const noise = ctx.createBufferSource(); noise.buffer = buf;
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'lowpass'; filter.frequency.setValueAtTime(300, now);
+        filter.frequency.exponentialRampToValueAtTime(30, now + 1.0);
+        const nGain = ctx.createGain();
+        nGain.gain.setValueAtTime(0.3, now);
+        nGain.gain.exponentialRampToValueAtTime(0.001, now + 1.1);
+        noise.connect(filter); filter.connect(nGain); nGain.connect(ctx.destination);
+        noise.start(now); noise.stop(now + 1.2);
+        return Promise.resolve();
+    },
+    catch: () => ({ catch: () => {} })
+};
+
 const bgmGameplay = document.getElementById("bgm-gameplay");
+
+// ═══════════════════════════════════════════════════════════════
+// 🎵 WEB AUDIO API: Vietnamese Epic Folk Music Engine
+// Nhạc dân tộc hào hùng Việt Nam - không lời
+// Features: War drums, pentatonic đàn tranh melody, brass horn
+// ═══════════════════════════════════════════════════════════════
+let lobbyAudioCtx = null;
+let lobbySchedulerId = null;
+let lobbyNodes = []; // track active oscillators for cleanup (auto-pruned via onended)
+let lobbyIsPlaying = false;
+
+// Helper: track a node and auto-remove when it finishes (prevents memory leak)
+function trackNode(node) {
+    lobbyNodes.push(node);
+    node.onended = () => {
+        const idx = lobbyNodes.indexOf(node);
+        if (idx !== -1) lobbyNodes.splice(idx, 1);
+    };
+}
+
+function createReverb(ctx, duration = 2.0, decay = 2.0) {
+    const sampleRate = ctx.sampleRate;
+    const length = sampleRate * duration;
+    const impulse = ctx.createBuffer(2, length, sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+        const data = impulse.getChannelData(ch);
+        for (let i = 0; i < length; i++) {
+            data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay);
+        }
+    }
+    const conv = ctx.createConvolver();
+    conv.buffer = impulse;
+    return conv;
+}
+
+function playDrum(ctx, dest, time, type = 'kick') {
+    if (type === 'kick') {
+        // Deep war drum (trống trận)
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(150, time);
+        osc.frequency.exponentialRampToValueAtTime(40, time + 0.15);
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.35, time);
+        g.gain.exponentialRampToValueAtTime(0.001, time + 0.4);
+        osc.connect(g); g.connect(dest);
+        osc.start(time); osc.stop(time + 0.45);
+        trackNode(osc);
+    } else if (type === 'snare') {
+        // Sharp snare / rimshot (thanh la)
+        const bufferSize = ctx.sampleRate * 0.12;
+        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1);
+        const noise = ctx.createBufferSource();
+        noise.buffer = buffer;
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'highpass'; filter.frequency.value = 3000;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.15, time);
+        g.gain.exponentialRampToValueAtTime(0.001, time + 0.12);
+        noise.connect(filter); filter.connect(g); g.connect(dest);
+        noise.start(time); noise.stop(time + 0.15);
+        trackNode(noise);
+    } else if (type === 'taiko') {
+        // Massive taiko-style war drum
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(80, time);
+        osc.frequency.exponentialRampToValueAtTime(30, time + 0.5);
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.4, time);
+        g.gain.exponentialRampToValueAtTime(0.001, time + 0.8);
+        osc.connect(g); g.connect(dest);
+        osc.start(time); osc.stop(time + 0.85);
+        trackNode(osc);
+    }
+}
+
+function playNote(ctx, dest, freq, time, duration = 0.5, vol = 0.08, type = 'triangle') {
+    const osc = ctx.createOscillator();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, time);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, time);
+    g.gain.linearRampToValueAtTime(vol, time + 0.03);
+    g.gain.setValueAtTime(vol * 0.8, time + duration * 0.6);
+    g.gain.exponentialRampToValueAtTime(0.001, time + duration);
+    osc.connect(g); g.connect(dest);
+    osc.start(time); osc.stop(time + duration + 0.05);
+    trackNode(osc);
+}
+
+function startLobbyMusic() {
+    if (lobbyIsPlaying) return;
+    lobbyIsPlaying = true;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    lobbyAudioCtx = new AC();
+    if (lobbyAudioCtx.state === 'suspended') lobbyAudioCtx.resume();
+    const ctx = lobbyAudioCtx;
+
+    // Master chain: reverb → compressor → destination
+    const reverb = createReverb(ctx, 2.5, 2.0);
+    const compressor = ctx.createDynamicsCompressor();
+    compressor.threshold.value = -20;
+    compressor.ratio.value = 4;
+    const masterGain = ctx.createGain();
+    masterGain.gain.value = 0.7;
+    
+    // Dry path
+    const dryGain = ctx.createGain();
+    dryGain.gain.value = 0.7;
+    dryGain.connect(compressor);
+    
+    // Wet path (reverb)
+    const wetGain = ctx.createGain();
+    wetGain.gain.value = 0.3;
+    reverb.connect(wetGain);
+    wetGain.connect(compressor);
+    
+    compressor.connect(masterGain);
+    masterGain.connect(ctx.destination);
+
+    // Vietnamese pentatonic scale: Hò (C4=262), Xự (D4=294), Xang (E4=330), Xê (G4=392), Cống (A4=440)
+    // Heroic melody pattern (inspired by Tiến quân ca / folk melodies)
+    const melodySequence = [
+        // Phrase 1: Rising heroic call (lên cao hào hùng)
+        { f: 392, d: 0.3 }, { f: 440, d: 0.3 }, { f: 523, d: 0.6 }, { f: 587, d: 0.3 },
+        { f: 523, d: 0.3 }, { f: 440, d: 0.6 }, { f: 0, d: 0.3 }, // rest
+        // Phrase 2: Descending power (hạ xuống uy nghiêm)
+        { f: 523, d: 0.3 }, { f: 440, d: 0.3 }, { f: 392, d: 0.6 }, { f: 330, d: 0.3 },
+        { f: 294, d: 0.3 }, { f: 262, d: 0.9 }, { f: 0, d: 0.3 },
+        // Phrase 3: Battle march (hành quân chiến đấu)
+        { f: 262, d: 0.2 }, { f: 330, d: 0.2 }, { f: 392, d: 0.4 }, { f: 523, d: 0.4 },
+        { f: 440, d: 0.2 }, { f: 392, d: 0.2 }, { f: 330, d: 0.4 }, { f: 294, d: 0.4 },
+        { f: 262, d: 0.2 }, { f: 294, d: 0.2 }, { f: 330, d: 0.8 }, { f: 0, d: 0.4 },
+        // Phrase 4: Triumphant climax (cao trào chiến thắng)
+        { f: 392, d: 0.2 }, { f: 440, d: 0.2 }, { f: 523, d: 0.3 }, { f: 587, d: 0.3 },
+        { f: 659, d: 0.6 }, { f: 587, d: 0.3 }, { f: 523, d: 0.3 },
+        { f: 440, d: 0.4 }, { f: 392, d: 0.4 }, { f: 330, d: 0.8 }, { f: 0, d: 0.6 },
+    ];
+
+    // Drum pattern per beat (0.3s = 1 beat)
+    const BPM_INTERVAL = 0.3; // ~100 BPM heroic march tempo
+    let beatCount = 0;
+    let melodyIdx = 0;
+    let melodyTime = 0;
+    let scheduleAhead = 0.1;
+    let nextBeatTime = ctx.currentTime + 0.5; // start after 0.5s fade-in
+
+    // Continuous bass drone (đàn nhị style low hum)
+    const bassOsc = ctx.createOscillator();
+    bassOsc.type = 'sawtooth';
+    bassOsc.frequency.value = 65.41; // C2
+    const bassFilter = ctx.createBiquadFilter();
+    bassFilter.type = 'lowpass';
+    bassFilter.frequency.value = 200;
+    const bassGain = ctx.createGain();
+    bassGain.gain.setValueAtTime(0, ctx.currentTime);
+    bassGain.gain.linearRampToValueAtTime(0.06, ctx.currentTime + 3.0);
+    bassOsc.connect(bassFilter);
+    bassFilter.connect(bassGain);
+    bassGain.connect(dryGain);
+    bassOsc.start();
+    trackNode(bassOsc);
+
+    function scheduler() {
+        while (nextBeatTime < ctx.currentTime + scheduleAhead) {
+            const t = nextBeatTime;
+
+            // ── DRUMS: War drum pattern ──
+            if (beatCount % 8 === 0) playDrum(ctx, dryGain, t, 'taiko'); // big hit every 8 beats
+            if (beatCount % 4 === 0) playDrum(ctx, dryGain, t, 'kick');
+            if (beatCount % 4 === 2) playDrum(ctx, dryGain, t, 'snare');
+            if (beatCount % 2 === 1) { // off-beat hi-hat like thanh la
+                playDrum(ctx, dryGain, t, 'snare');
+            }
+
+            // ── MELODY: Đàn tranh pentatonic on triangle wave ──
+            if (melodyTime <= 0 && melodySequence[melodyIdx]) {
+                const note = melodySequence[melodyIdx % melodySequence.length];
+                if (note.f > 0) {
+                    // Main melody (triangle = đàn tranh timbre)
+                    playNote(ctx, dryGain, note.f, t, note.d * 0.9, 0.1, 'triangle');
+                    // Reverb send for depth
+                    playNote(ctx, reverb, note.f, t, note.d * 0.9, 0.04, 'triangle');
+                    // Octave doubling for richness (brass horn feel)
+                    if (note.f >= 440) {
+                        playNote(ctx, dryGain, note.f * 0.5, t, note.d * 0.9, 0.04, 'sawtooth');
+                    }
+                }
+                melodyTime = note.d;
+                melodyIdx++;
+                if (melodyIdx >= melodySequence.length) melodyIdx = 0; // loop
+            }
+            melodyTime -= BPM_INTERVAL;
+
+            beatCount++;
+            nextBeatTime += BPM_INTERVAL;
+        }
+        lobbySchedulerId = requestAnimationFrame(scheduler);
+    }
+    lobbySchedulerId = requestAnimationFrame(scheduler);
+}
+
+function stopLobbyMusic() {
+    lobbyIsPlaying = false;
+    if (lobbySchedulerId) { cancelAnimationFrame(lobbySchedulerId); lobbySchedulerId = null; }
+    lobbyNodes.forEach(n => { try { n.stop(); } catch(e){} });
+    lobbyNodes = [];
+    if (lobbyAudioCtx) { try { lobbyAudioCtx.close(); } catch(e){} lobbyAudioCtx = null; }
+}
 
 // Game State
 let activePlayers = {}; // map of sid -> player data (mesh, labelDiv, name, color, progress, rank)
@@ -189,7 +506,7 @@ function init3D() {
         sunDirection: new THREE.Vector3(),
         sunColor: 0xffffff,
         waterColor: 0x003e48,
-        distortionScale: 3.7,
+        distortionScale: 1.5,
         fog: false,
     });
     water.rotation.x = -Math.PI / 2;
@@ -894,7 +1211,7 @@ function attachVietnamFlag(boat) {
     const poleGeom = new THREE.CylinderGeometry(0.06, 0.06, 3.8);
     const poleMat = new THREE.MeshStandardMaterial({ color: 0xbdc3c7, metalness: 0.9 });
     const pole = new THREE.Mesh(poleGeom, poleMat);
-    pole.rotation.x = -0.15; // Slanted backward slightly
+    pole.rotation.x = 0; // Vertical pole
     pole.position.y = 1.6;
     flagGroup.add(pole);
     
@@ -905,7 +1222,7 @@ function attachVietnamFlag(boat) {
         side: THREE.DoubleSide 
     });
     const flag = new THREE.Mesh(flagGeom, flagMat);
-    flag.position.set(1.1, 2.8, 0);
+    flag.position.set(0, 2.8, 1.1); // Gắn cờ vào cột cờ tại z = 0 và bay về phía sau (+Z)
     flag.rotation.y = Math.PI / 2; // Facing sideways
     flagGroup.add(flag);
     
@@ -988,14 +1305,11 @@ function animate() {
                 const pitchOffset = Math.sin(time * 1.4 + p.heaveOffset) * 0.015;
                 const rollOffset = Math.cos(time * 1.0 + p.heaveOffset) * 0.025;
                 
-                p.mesh.position.y = 12.8 + bobOffset;
+                p.mesh.position.y = 24.0 + bobOffset;
                 p.mesh.rotation.x = pitchOffset;
                 p.mesh.rotation.z = rollOffset;
                 
-                // Wave flag animation
-                if (p.mesh.userData && p.mesh.userData.flagMesh) {
-                    p.mesh.userData.flagMesh.rotation.z = Math.sin(time * 10 + p.heaveOffset) * 0.08;
-                }
+                // Lá cờ của đối thủ đứng yên uy nghiêm
             }
         });
 
@@ -1308,10 +1622,7 @@ function animateExplosions() {
 // Play background music once admin interacts
 document.body.addEventListener("click", () => {
     sfxAmbient.play().catch(() => {});
-    if (bgmLobby) {
-        bgmLobby.volume = 0.3;
-        bgmLobby.play().catch(() => {});
-    }
+    startLobbyMusic();
 }, { once: true });
 
 function updateLobbyUI(players) {
@@ -1328,8 +1639,9 @@ function updateLobbyUI(players) {
     players.forEach((p) => {
         const badge = document.createElement("div");
         badge.className = "player-lobby-badge";
+        badge.style.borderLeft = `3px solid ${p.color}`;
         badge.innerHTML = `
-            <span class="player-color-dot" style="background: ${p.color};"></span>
+            <span class="player-color-dot" style="background: ${p.color}; box-shadow: 0 0 8px ${p.color};"></span>
             <span>${p.name}</span>
         `;
         lobbyPlayersGrid.appendChild(badge);
@@ -1375,6 +1687,66 @@ function setupAdminAbly(channel) {
             refreshAdminPresence();
         }
     });
+
+    channel.subscribe("answer", (msg) => {
+        const data = msg.data;
+        if (!data?.id) return;
+
+        if (activePlayers[data.id]) {
+            let statusText = "Chưa Trả Lời";
+            let statusClass = "status-waiting";
+
+            if (data.type === "boost") {
+                statusText = "Đã Dùng Phản Lực";
+                statusClass = "status-correct";
+                addEventLog(`${data.name} đã dùng Phản Lực! (+15m)`);
+            } else if (data.isCorrect) {
+                statusText = "Đã Trả Lời Đúng";
+                statusClass = "status-correct";
+                addEventLog(`${data.name} trả lời đúng! (+10m)`);
+            } else {
+                statusText = "Đã Trả Lời Sai";
+                statusClass = "status-wrong";
+                addEventLog(`${data.name} trả lời sai!`);
+            }
+
+            activePlayers[data.id].answerStatus = {
+                text: statusText,
+                className: statusClass
+            };
+
+            updateLiveLeaderboard();
+
+            if (activePlayers[data.id].statusTimeout) {
+                clearTimeout(activePlayers[data.id].statusTimeout);
+            }
+
+            activePlayers[data.id].statusTimeout = setTimeout(() => {
+                if (activePlayers[data.id]) {
+                    activePlayers[data.id].answerStatus = {
+                        text: "Đang Chờ",
+                        className: "status-waiting"
+                    };
+                    updateLiveLeaderboard();
+                }
+            }, 3500);
+        }
+    });
+}
+
+function addEventLog(text) {
+    if (!logEventsList) return;
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const timeStr = `${hours}:${minutes}`;
+
+    const item = document.createElement("div");
+    item.className = "event-log-item";
+    item.innerHTML = `<span style="color: rgba(255,255,255,0.6); font-weight: 500; margin-right: 8px;">${timeStr}</span> - <span style="color: rgba(255,255,255,0.85);">${text}</span>`;
+
+    logEventsList.appendChild(item);
+    logEventsList.scrollTop = logEventsList.scrollHeight;
 }
 
 function trackWinnerFromPos(data) {
@@ -1490,7 +1862,7 @@ function sync3DPlayers(playersList) {
                 }
             }
             // Remove mesh
-            if (activePlayers[sid].mesh) {
+            if (activePlayers[sid].mesh && scene) {
                 scene.remove(activePlayers[sid].mesh);
             }
             // Release assigned lane index
@@ -1545,34 +1917,36 @@ function sync3DPlayers(playersList) {
             };
 
             // Instantiate dynamic boat model
-            loader.load("helpers/boat/scene.gltf", (gltf) => {
-                const boat = gltf.scene;
-                boat.scale.set(2.5, 2.5, 2.5);
-                const currentZ = START_Z - ((activePlayers[p.sid] ? activePlayers[p.sid].progress : p.progress || 0.0) * TOTAL_DIST);
-                boat.position.set(laneX, 13, currentZ);
-                boat.rotation.y = Math.PI * 0.5; // Face towards -Z (France)
-                
-                boat.traverse((child) => {
-                    if (child.isMesh) {
-                        child.castShadow = true;
-                        child.receiveShadow = true;
+            if (scene) {
+                loader.load("helpers/boat/scene.gltf", (gltf) => {
+                    const boat = gltf.scene;
+                    boat.scale.set(2.5, 2.5, 2.5);
+                    const currentZ = START_Z - ((activePlayers[p.sid] ? activePlayers[p.sid].progress : p.progress || 0.0) * TOTAL_DIST);
+                    boat.position.set(laneX, 24.0, currentZ);
+                    boat.rotation.y = Math.PI * 0.5; // Face towards -Z (France)
+                    
+                    boat.traverse((child) => {
+                        if (child.isMesh) {
+                            child.castShadow = true;
+                            child.receiveShadow = true;
+                        }
+                    });
+                    
+                    scene.add(boat);
+
+                    // Paint Hull custom color
+                    paintBoat(boat, p.color);
+
+                    // Attach flying Vietnam flag to the stern
+                    attachVietnamFlag(boat);
+
+                    if (activePlayers[p.sid]) {
+                        activePlayers[p.sid].mesh = boat;
+                    } else {
+                        scene.remove(boat);
                     }
                 });
-                
-                scene.add(boat);
-
-                // Paint Hull custom color
-                paintBoat(boat, p.color);
-
-                // Attach flying Vietnam flag to the stern
-                attachVietnamFlag(boat);
-
-                if (activePlayers[p.sid]) {
-                    activePlayers[p.sid].mesh = boat;
-                } else {
-                    scene.remove(boat);
-                }
-            });
+            }
         } else {
             // Already exists, keep lane offsets but update names and stats
             activePlayers[p.sid].name = p.name;
@@ -1638,16 +2012,33 @@ function onPauseStatus(data) {
 function onGameReset() {
     gameStarted = false;
     adminPanel.classList.add("active");
+    if (lobbyPlayersPanel) {
+        lobbyPlayersPanel.classList.add("active");
+    }
     liveLeaderboard.classList.remove("active");
+    if (adminStatusPanel) {
+        adminStatusPanel.classList.remove("active");
+    }
     podiumScreen.classList.remove("active");
+    
+    if (adminEventLogPanel) {
+        adminEventLogPanel.classList.remove("active");
+    }
+    if (logEventsList) {
+        logEventsList.innerHTML = "";
+    }
+    Object.keys(activePlayers).forEach(sid => {
+        if (activePlayers[sid].statusTimeout) {
+            clearTimeout(activePlayers[sid].statusTimeout);
+            delete activePlayers[sid].statusTimeout;
+        }
+        delete activePlayers[sid].answerStatus;
+    });
     
     // Switch background music from gameplay back to lobby
     if (bgmGameplay) bgmGameplay.pause();
-    if (bgmLobby) {
-        bgmLobby.volume = 0.3;
-        bgmLobby.currentTime = 0;
-        bgmLobby.play().catch(() => {});
-    }
+    startLobbyMusic();
+    sfxAmbient.play().catch(() => {});
     
     if (pauseGameBtn) {
         pauseGameBtn.style.display = "none";
@@ -1656,17 +2047,19 @@ function onGameReset() {
     }
     
     // Reset camera back to cinematic isometric 3D perspective
-    controls.target.set(0, 10, START_Z - 80);
-    camera.position.set(220, 140, START_Z + 160);
+    if (controls && camera) {
+        controls.target.set(0, 10, START_Z - 80);
+        camera.position.set(220, 140, START_Z + 160);
+    }
     
     // Reset all active players' stats and re-align/restore 3D meshes
     Object.keys(activePlayers).forEach(sid => {
         const p = activePlayers[sid];
         p.progress = 0.0;
         p.rank = null;
-        if (p.mesh) {
+        if (p.mesh && scene) {
             // Restore position to start line using correct stable lane coordinate
-            p.mesh.position.set(p.laneX, 13, START_Z);
+            p.mesh.position.set(p.laneX, 24.0, START_Z);
             p.mesh.rotation.set(0, Math.PI * 0.5, 0); // Face towards -Z (France)
             p.mesh.scale.set(2.5, 2.5, 2.5); // Restore full scale in case it was capped/sinked
             
@@ -1687,11 +2080,37 @@ function onGameReset() {
     
     updateLiveLeaderboard();
     refreshAdminPresence();
+    const simulate30Btn = document.getElementById("simulate-30-btn");
+    if (simulate30Btn) {
+        simulate30Btn.disabled = false;
+        simulate30Btn.innerText = "MÔ PHỎNG 30 NGƯỜI CHƠI (TEST LOAD)";
+        simulate30Btn.style.opacity = "1";
+    }
 }
 
 function onGameStarted() {
     adminPanel.classList.remove("active");
+    if (lobbyPlayersPanel) {
+        lobbyPlayersPanel.classList.remove("active");
+    }
     liveLeaderboard.classList.add("active");
+    if (adminStatusPanel) {
+        adminStatusPanel.classList.add("active");
+    }
+
+    if (adminEventLogPanel) {
+        adminEventLogPanel.classList.add("active");
+    }
+    if (logEventsList) {
+        logEventsList.innerHTML = "";
+    }
+    Object.keys(activePlayers).forEach(sid => {
+        if (activePlayers[sid].statusTimeout) {
+            clearTimeout(activePlayers[sid].statusTimeout);
+            delete activePlayers[sid].statusTimeout;
+        }
+        activePlayers[sid].answerStatus = { text: "Chưa Trả Lời", className: "status-waiting" };
+    });
 
     if (pauseGameBtn) {
         pauseGameBtn.style.display = "block";
@@ -1702,15 +2121,18 @@ function onGameStarted() {
     sfxHorn.play().catch(() => {});
     
     // Switch background music from lobby to gameplay
-    if (bgmLobby) bgmLobby.pause();
+    stopLobbyMusic();
+    sfxAmbient.pause();
     if (bgmGameplay) {
         bgmGameplay.volume = 0.3;
         bgmGameplay.currentTime = 0;
         bgmGameplay.play().catch(() => {});
     }
 
-    controls.target.set(0, 10, START_Z - 80);
-    camera.position.set(220, 140, START_Z + 160);
+    if (controls && camera) {
+        controls.target.set(0, 10, START_Z - 80);
+        camera.position.set(220, 140, START_Z + 160);
+    }
     refreshAdminPresence();
 }
 
@@ -1718,40 +2140,80 @@ function updateLiveLeaderboard() {
     // Sort players by progress descending
     const sorted = Object.values(activePlayers).sort((a, b) => b.progress - a.progress);
     
-    leaderboardList.innerHTML = "";
-    sorted.forEach((p, idx) => {
-        const row = document.createElement("div");
-        row.className = "leader-row";
-        row.style.borderLeftColor = p.color;
-        
-        let rankBadge = `${idx + 1}. `;
-        if (p.rank === 1) rankBadge = "🥇 1st | ";
-        else if (p.rank === 2) rankBadge = "🥈 2nd | ";
-        else if (p.rank === 3) rankBadge = "🥉 3rd | ";
-        
-        row.innerHTML = `
-            <div class="leader-meta">
-                <span class="leader-name"><strong>${rankBadge}${p.name}</strong></span>
-                <span class="leader-percent">${Math.round(p.progress * 100)}%</span>
-            </div>
-            <div class="leader-progress-track">
-                <div class="leader-progress-bar" style="width: ${p.progress * 100}%; background-color: ${p.color}"></div>
-            </div>
-        `;
-        leaderboardList.appendChild(row);
-    });
+    if (statusPlayersList) {
+        statusPlayersList.innerHTML = "";
+        sorted.forEach((p, idx) => {
+            const row = document.createElement("div");
+            row.className = "gameplay-player-row";
+            row.style.borderLeft = `3px solid ${p.color}`;
+            
+            const status = p.answerStatus || { text: "Chưa Trả Lời", className: "status-waiting" };
+            
+            row.innerHTML = `
+                <div class="player-info-left">
+                    <span class="player-rank-num">${idx + 1}.</span>
+                    <span class="player-boat-icon" style="color: ${p.color};">⛵</span>
+                    <span class="player-name-text">${p.name}</span>
+                </div>
+                <div class="status-badge ${status.className}">${status.text}</div>
+            `;
+            statusPlayersList.appendChild(row);
+        });
+    }
+
+    if (leaderboardList) {
+        leaderboardList.innerHTML = "";
+        sorted.forEach((p, idx) => {
+            const row = document.createElement("div");
+            row.className = "leader-row";
+            row.style.borderLeft = `4px solid ${p.color}`;
+            const pct = Math.round((p.progress || 0) * 100);
+            
+            row.innerHTML = `
+                <div class="leader-meta">
+                    <div class="leader-name">
+                        <span class="player-rank-num">${idx + 1}.</span>
+                        <span class="player-boat-icon" style="color: ${p.color};">⛵</span>
+                        <span class="player-name-text">${p.name}</span>
+                    </div>
+                    <div class="leader-percent">${pct}%</div>
+                </div>
+                <div class="leader-progress-track">
+                    <div class="leader-progress-bar" style="width: ${pct}%; background: ${p.color}; box-shadow: 0 0 8px ${p.color};"></div>
+                </div>
+            `;
+            leaderboardList.appendChild(row);
+        });
+    }
 }
 
 function onGameOver(data) {
     gameStarted = false;
     liveLeaderboard.classList.remove("active");
+    if (adminStatusPanel) {
+        adminStatusPanel.classList.remove("active");
+    }
+    if (lobbyPlayersPanel) {
+        lobbyPlayersPanel.classList.remove("active");
+    }
     podiumScreen.classList.add("active");
+    
+    if (adminEventLogPanel) {
+        adminEventLogPanel.classList.remove("active");
+    }
+    Object.keys(activePlayers).forEach(sid => {
+        if (activePlayers[sid].statusTimeout) {
+            clearTimeout(activePlayers[sid].statusTimeout);
+            delete activePlayers[sid].statusTimeout;
+        }
+    });
+
     if (pauseGameBtn) {
         pauseGameBtn.style.display = "none";
     }
 
     // Stop background music
-    if (bgmLobby) bgmLobby.pause();
+    stopLobbyMusic();
     if (bgmGameplay) bgmGameplay.pause();
 
     // Play horn and launch continuous confetti
@@ -1858,11 +2320,11 @@ try {
     }
     init3D();
     animate();
-    initAdminAbly();
 } catch (e) {
     console.error("3D Graphics Initialization Failed. Applying 2D Fallback.", e);
     apply2DFallback();
 }
+initAdminAbly();
 
 function isWebGLAvailable() {
     try {
@@ -1878,5 +2340,52 @@ function apply2DFallback() {
     if (container) {
         container.innerHTML = ""; // Remove any glitched/white canvas
         container.classList.add("sea-fallback");
+        
+        // Dynamically inject beautiful cyber-ocean fallback styles
+        let style = document.getElementById("fallback-style");
+        if (!style) {
+            style = document.createElement("style");
+            style.id = "fallback-style";
+            style.innerHTML = `
+                .sea-fallback {
+                    background: radial-gradient(circle at 50% 50%, #0d1e36 0%, #050b14 100%) !important;
+                    position: absolute;
+                    width: 100%;
+                    height: 100%;
+                    overflow: hidden;
+                }
+                .sea-fallback::before {
+                    content: '';
+                    position: absolute;
+                    width: 200%;
+                    height: 200%;
+                    top: -50%;
+                    left: -50%;
+                    background-image: 
+                        linear-gradient(rgba(0, 242, 254, 0.05) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(0, 242, 254, 0.05) 1px, transparent 1px);
+                    background-size: 40px 40px;
+                    transform: rotate(15deg);
+                    animation: grid-drift 30s linear infinite;
+                    pointer-events: none;
+                }
+                .sea-fallback::after {
+                    content: '';
+                    position: absolute;
+                    width: 100%;
+                    height: 100%;
+                    top: 0;
+                    left: 0;
+                    background: radial-gradient(circle at 50% 50%, transparent 30%, rgba(0,0,0,0.6) 80%);
+                    pointer-events: none;
+                }
+                @keyframes grid-drift {
+                    from { transform: rotate(15deg) translateY(0); }
+                    to { transform: rotate(15deg) translateY(40px); }
+                }
+            `;
+            document.head.appendChild(style);
+        }
     }
 }
+
