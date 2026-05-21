@@ -2,9 +2,22 @@ import * as THREE from "three";
 import { Water } from "three/examples/jsm/objects/Water.js";
 import { Sky } from "three/examples/jsm/objects/Sky.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import {
+  connectAbly,
+  createPlayerId,
+  presenceToPlayers,
+  PUBLISH_INTERVAL_MS,
+} from "./ably-realtime.js";
+import { QUESTIONS } from "./questions.js";
 
-// Socket.IO Connection
-const socket = io();
+let ablyChannel = null;
+let myClientId = null;
+let gameStarted = false;
+let gamePaused = false;
+let quizQueue = [];
+let quizQueueIdx = 0;
+let quizScore = 0;
+let lastPosPublish = 0;
 
 // UI Elements
 const lobbyScreen = document.getElementById("lobby-screen");
@@ -382,9 +395,13 @@ function animate() {
         Object.keys(activePlayers).forEach(sid => {
             const p = activePlayers[sid];
             if (p.mesh) {
-                const targetZPos = START_Z - (p.progress * TOTAL_DIST);
-                p.mesh.position.z += (targetZPos - p.mesh.position.z) * 0.04;
-                p.mesh.position.x = p.laneX;
+                const targetZPos =
+                    p.targetZ !== undefined
+                        ? p.targetZ
+                        : START_Z - (p.progress * TOTAL_DIST);
+                const targetX = p.targetX !== undefined ? p.targetX : p.laneX;
+                p.mesh.position.z += (targetZPos - p.mesh.position.z) * 0.12;
+                p.mesh.position.x += (targetX - p.mesh.position.x) * 0.12;
                 
                 // Bobbing physics
                 const bob = Math.sin(time * 2.0 + p.heaveOffset) * 0.22;
@@ -457,6 +474,8 @@ function animate() {
                 boatMesh.position.z - 100
             );
             camera.lookAt(lookTarget);
+
+            maybePublishPosition();
         }
 
         if (renderer && scene && camera) {
@@ -492,40 +511,79 @@ if (playerNameInput) {
     });
 }
 
-joinBtn.addEventListener("click", () => {
-    const name = playerNameInput.value.trim();
-    if (!name) {
-        alert("Vui lòng nhập tên thuyền trưởng của bạn!");
-        return;
-    }
-    
-    // Request server to join
-    socket.emit("join_game", {
-        name: name,
-        color: selectedColor
+function maybePublishPosition() {
+    if (!ablyChannel || !boatMesh || !myPlayer || gamePaused) return;
+    const now = performance.now();
+    if (now - lastPosPublish < PUBLISH_INTERVAL_MS) return;
+    lastPosPublish = now;
+
+    ablyChannel.publish("pos", {
+        id: myPlayer.id,
+        t: Date.now(),
+        x: boatMesh.position.x,
+        y: boatMesh.position.y,
+        z: boatMesh.position.z,
+        yaw: boatMesh.rotation.y,
+        vx: 0,
+        vz: 0,
+        progress: currentProgress,
+        rank: myPlayer.rank ?? null,
     });
-});
+}
 
-// SERVER WEB SOCKET HANDLERS
-socket.on("join_response", (data) => {
-    if (data.success) {
-        myPlayer = data.player;
-        
-        // Dynamically color our local boat
-        applyBoatColor(myPlayer.color);
-        
-        // Transition UI to waiting screen
-        lobbyScreen.classList.remove("active");
-        waitingScreen.classList.add("active");
-        document.getElementById("player-welcome-msg").innerText = `Chào Thuyền Trưởng ${myPlayer.name}, thuyền của bạn đã ở vạch xuất phát!`;
-        
-        sfxHorn.play().catch(() => {});
-    } else {
-        alert(data.message || "Không thể tham gia game.");
+async function refreshLobbyFromPresence() {
+    if (!ablyChannel) return;
+    const members = await ablyChannel.presence.get();
+    const players = presenceToPlayers(members);
+    syncCompetitors(players);
+}
+
+function setupAblyListeners(channel) {
+    channel.presence.subscribe(() => {
+        refreshLobbyFromPresence();
+    });
+
+    channel.subscribe("pos", (msg) => {
+        const data = msg.data;
+        if (!data?.id || (myPlayer && data.id === myPlayer.id)) return;
+
+        if (activePlayers[data.id]) {
+            activePlayers[data.id].progress = data.progress ?? activePlayers[data.id].progress;
+            activePlayers[data.id].rank = data.rank ?? activePlayers[data.id].rank;
+            activePlayers[data.id].targetX = data.x;
+            activePlayers[data.id].targetZ = data.z;
+        } else {
+            refreshLobbyFromPresence();
+        }
+    });
+
+    channel.subscribe("admin", (msg) => {
+        handleAdminEvent(msg.data);
+    });
+}
+
+function handleAdminEvent(data) {
+    if (!data?.type) return;
+    switch (data.type) {
+        case "start":
+            onGameStarted();
+            break;
+        case "pause":
+            onPauseStatus({ paused: true });
+            break;
+        case "resume":
+            onPauseStatus({ paused: false });
+            break;
+        case "reset":
+            onGameReset();
+            break;
+        case "game_over":
+            if (data.winners) onGameOver({ winners: data.winners, players: data.players || [] });
+            break;
     }
-});
+}
 
-socket.on("game_reset", () => {
+function onGameReset() {
     currentProgress = 0.0;
     targetZ = START_Z;
     accelerationEffect = 0.0;
@@ -571,71 +629,78 @@ socket.on("game_reset", () => {
         playerProgressBar.style.width = "0%";
         playerProgressBoat.style.left = "0%";
     } else {
-        // If not joined, we go back to lobby screen
         lobbyScreen.classList.add("active");
         waitingScreen.classList.remove("active");
     }
-});
 
-socket.on("game_started", () => {
-    // Transition to Quiz HUD
+    gameStarted = false;
+    gamePaused = false;
+    quizScore = 0;
+    quizQueueIdx = 0;
+    quizQueue = [];
+}
+
+function onGameStarted() {
+    gameStarted = true;
+    gamePaused = false;
+    quizScore = 0;
+    quizQueueIdx = 0;
+    quizQueue = QUESTIONS.map((_, i) => i);
+    currentProgress = 0;
+
     waitingScreen.classList.remove("active");
     quizScreen.classList.add("active");
     sfxHorn.play().catch(() => {});
-});
+    sendNextQuestion();
+}
 
-socket.on("lobby_status", (data) => {
-    totalQuestions = 15;
-    if (data.game_started) {
-        waitingScreen.classList.remove("active");
-        quizScreen.classList.add("active");
-    }
-    syncCompetitors(data.players);
-});
-
-socket.on("pause_status", (data) => {
+function onPauseStatus(data) {
+    gamePaused = !!data.paused;
     if (pausedOverlay) {
-        if (data.paused) {
-            pausedOverlay.classList.add("active");
-        } else {
-            pausedOverlay.classList.remove("active");
-        }
+        if (data.paused) pausedOverlay.classList.add("active");
+        else pausedOverlay.classList.remove("active");
     }
-});
+}
 
-socket.on("next_question", (data) => {
-    function applyNextQuestion() {
-        // Update progress
-        totalQuestions = data.total_questions;
-        currentProgress = data.progress;
-        correctCount.innerText = data.num_answered;
-        playerProgressBar.style.width = `${data.progress * 100}%`;
-        playerProgressBoat.style.left = `${data.progress * 100}%`;
+function applyNextQuestion(data) {
+    totalQuestions = data.total_questions;
+    currentProgress = data.progress;
+    correctCount.innerText = data.num_answered;
+    playerProgressBar.style.width = `${data.progress * 100}%`;
+    playerProgressBoat.style.left = `${data.progress * 100}%`;
 
-        // Enable answer buttons
-        optionButtons.forEach(btn => {
-            btn.classList.remove("selected", "success", "error");
-            btn.disabled = false;
-        });
+    optionButtons.forEach((btn) => {
+        btn.classList.remove("selected", "success", "error");
+        btn.disabled = false;
+    });
 
-        // Populate question text and options
-        const questionNum = data.num_answered + 1;
-        questionNumberBadge.innerText = `CÂU HỎI ${questionNum}`;
-        questionText.innerText = data.question_text;
-        
-        data.options.forEach((opt, idx) => {
-            document.getElementById(`opt-${idx}`).innerText = opt;
-        });
-    }
+    const questionNum = data.num_answered + 1;
+    questionNumberBadge.innerText = `CÂU HỎI ${questionNum}`;
+    questionText.innerText = data.question_text;
+    data.options.forEach((opt, idx) => {
+        document.getElementById(`opt-${idx}`).innerText = opt;
+    });
+}
 
-    // If we have 'last_correct' field, show feedback screen first!
-    if (data.hasOwnProperty("last_correct")) {
-        const isCorrect = data.last_correct;
+function sendNextQuestion(lastCorrect = null) {
+    if (!gameStarted || gamePaused || quizQueueIdx >= quizQueue.length) return;
+
+    const qIdx = quizQueue[quizQueueIdx];
+    const q = QUESTIONS[qIdx];
+    const data = {
+        question_text: q.question,
+        options: q.options,
+        num_answered: quizScore,
+        total_questions: QUESTIONS.length,
+        progress: Math.min(1, quizScore / QUESTIONS.length),
+    };
+
+    if (lastCorrect !== null) {
         feedbackOverlay.classList.remove("correct", "wrong");
-        feedbackOverlay.classList.add(isCorrect ? "correct" : "wrong");
+        feedbackOverlay.classList.add(lastCorrect ? "correct" : "wrong");
         feedbackOverlay.classList.add("active");
-        
-        if (isCorrect) {
+
+        if (lastCorrect) {
             feedbackTitle.innerText = "CHÍNH XÁC!";
             feedbackDesc.innerText = "Tuyệt vời! Thuyền của bạn đang lướt nhanh ra khơi...";
             sfxCorrect.currentTime = 0;
@@ -646,17 +711,55 @@ socket.on("next_question", (data) => {
             sfxWrong.currentTime = 0;
             sfxWrong.play().catch(() => {});
         }
-        
-        // Pause 1.3 seconds before rendering next question
+
         setTimeout(() => {
             feedbackOverlay.classList.remove("active");
-            applyNextQuestion();
+            applyNextQuestion(data);
         }, 1300);
     } else {
         feedbackOverlay.classList.remove("active", "correct", "wrong");
-        applyNextQuestion();
+        applyNextQuestion(data);
     }
-});
+}
+
+function handleLocalAnswer(answerIdx) {
+    if (!gameStarted || gamePaused || !myPlayer) return;
+
+    const qIdx = quizQueue[quizQueueIdx];
+    const isCorrect =
+        answerIdx === QUESTIONS[qIdx].answer || answerIdx === -99;
+
+    if (isCorrect) {
+        quizScore += 1;
+        quizQueueIdx += 1;
+    } else {
+        quizQueue.push(qIdx);
+        quizQueueIdx += 1;
+    }
+
+    currentProgress = Math.min(1, quizScore / QUESTIONS.length);
+    myPlayer.progress = currentProgress;
+
+    if (myPlayer) {
+        correctCount.innerText = quizScore;
+        playerProgressBar.style.width = `${currentProgress * 100}%`;
+        playerProgressBoat.style.left = `${currentProgress * 100}%`;
+        accelerationEffect = 1.0;
+    }
+
+    maybePublishPosition();
+
+    const finished = quizScore >= QUESTIONS.length;
+    if (finished && myPlayer.rank == null) {
+        myPlayer.rank = 1;
+        onVictory({ rank: myPlayer.rank });
+        return;
+    }
+
+    if (!finished) {
+        sendNextQuestion(isCorrect);
+    }
+}
 
 // SUBMIT OPTION CLICK
 optionButtons.forEach(btn => {
@@ -669,54 +772,24 @@ optionButtons.forEach(btn => {
         // Disable all buttons to prevent double clicks
         optionButtons.forEach(b => b.disabled = true);
         
-        // Send answer to server
-        socket.emit("submit_answer", {
-            answer: selectedIdx
-        });
+        handleLocalAnswer(selectedIdx);
     });
 });
 
-// CHEAT CODE SHORTCUT FOR DEVELOPER TESTING (Press 'C' to answer correctly instantly!)
 window.addEventListener("keydown", (e) => {
     if (e.key && e.key.toLowerCase() === "c") {
         if (quizScreen.classList.contains("active") && !feedbackOverlay.classList.contains("active")) {
             const firstButton = optionButtons[0];
             if (firstButton && !firstButton.disabled) {
-                // Highlight first button as selected just for visual feedback
                 firstButton.classList.add("selected");
-                optionButtons.forEach(b => b.disabled = true);
-                
-                // Submit -99 cheat code
-                socket.emit("submit_answer", {
-                    answer: -99
-                });
+                optionButtons.forEach((b) => (b.disabled = true));
+                handleLocalAnswer(-99);
             }
         }
     }
 });
 
-// HANDLE ANSWER EVALUATION RESPONSE
-socket.on("progress_update", (data) => {
-    // Sync competitor boat updates in real time
-    if (activePlayers[data.sid]) {
-        activePlayers[data.sid].progress = data.progress;
-        activePlayers[data.sid].rank = data.rank;
-    }
-    
-    // If it's my update, synchronise progress
-    if (myPlayer && data.sid === myPlayer.sid) {
-        currentProgress = data.progress;
-        correctCount.innerText = Math.round(data.progress * totalQuestions);
-        playerProgressBar.style.width = `${data.progress * 100}%`;
-        playerProgressBoat.style.left = `${data.progress * 100}%`;
-        
-        // Trigger G-Force acceleration camera surge
-        accelerationEffect = 1.0;
-    }
-});
-
-// VICTORY SCREEN
-socket.on("victory", (data) => {
+function onVictory(data) {
     quizScreen.classList.remove("active");
     gameOverScreen.classList.add("active");
     victoryView.classList.add("active");
@@ -727,6 +800,50 @@ socket.on("victory", (data) => {
     // Play sound and trigger confetti explosion
     sfxHorn.play().catch(() => {});
     triggerConfetti();
+}
+
+joinBtn.addEventListener("click", async () => {
+    const name = playerNameInput.value.trim();
+    if (!name) {
+        alert("Vui lòng nhập tên thuyền trưởng của bạn!");
+        return;
+    }
+
+    joinBtn.disabled = true;
+    try {
+        myClientId = createPlayerId();
+        const { channel } = await connectAbly({
+            clientId: myClientId,
+            name,
+            color: selectedColor,
+            role: "player",
+        });
+        ablyChannel = channel;
+        setupAblyListeners(channel);
+
+        myPlayer = {
+            id: myClientId,
+            sid: myClientId,
+            name,
+            color: selectedColor,
+            progress: 0,
+            rank: null,
+        };
+
+        applyBoatColor(myPlayer.color);
+        lobbyScreen.classList.remove("active");
+        waitingScreen.classList.add("active");
+        document.getElementById("player-welcome-msg").innerText =
+            `Chào Thuyền Trưởng ${myPlayer.name}, thuyền của bạn đã ở vạch xuất phát!`;
+        sfxHorn.play().catch(() => {});
+
+        await refreshLobbyFromPresence();
+    } catch (err) {
+        console.error("Ably connect failed:", err);
+        alert("Không thể kết nối realtime. Kiểm tra ABLY_API_KEY trên server.");
+    } finally {
+        joinBtn.disabled = false;
+    }
 });
 
 function triggerConfetti() {
@@ -751,8 +868,7 @@ function triggerConfetti() {
     }, 250);
 }
 
-// GAME OVER (TRIGGER EXPLOSION IF NOT WINNER)
-socket.on("game_over", (data) => {
+function onGameOver(data) {
     quizScreen.classList.remove("active");
     waitingScreen.classList.remove("active");
     if (pausedOverlay) {
@@ -846,7 +962,7 @@ socket.on("game_over", (data) => {
         `;
         winnersPodium.appendChild(row);
     });
-});
+}
 
 // START
 try {

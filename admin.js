@@ -3,9 +3,15 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { Water } from "three/examples/jsm/objects/Water.js";
 import { Sky } from "three/examples/jsm/objects/Sky.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import {
+  connectAbly,
+  createPlayerId,
+  presenceToPlayers,
+} from "./ably-realtime.js";
 
-// Socket.IO Connection
-const socket = io();
+let ablyChannel = null;
+let adminWinners = [];
+let gamePaused = false;
 
 // UI Elements
 const adminPanel = document.getElementById("admin-panel");
@@ -310,11 +316,14 @@ function animate() {
             const p = activePlayers[sid];
             if (p.mesh) {
                 // Target Z position based on game progress
-                const targetZPos = START_Z - (p.progress * TOTAL_DIST);
-                
-                // Smoother lerp for racing boats
-                p.mesh.position.z += (targetZPos - p.mesh.position.z) * 0.04;
-                p.mesh.position.x = p.laneX; // Maintain horizontal lane stability
+                const targetZPos =
+                    p.targetZ !== undefined
+                        ? p.targetZ
+                        : START_Z - (p.progress * TOTAL_DIST);
+                const targetX = p.targetX !== undefined ? p.targetX : p.laneX;
+
+                p.mesh.position.z += (targetZPos - p.mesh.position.z) * 0.12;
+                p.mesh.position.x += (targetX - p.mesh.position.x) * 0.12;
                 
                 // Boat bobbing physics
                 const bobOffset = Math.sin(time * 2.0 + p.heaveOffset) * 0.22;
@@ -470,33 +479,18 @@ document.body.addEventListener("click", () => {
     sfxAmbient.play().catch(() => {});
 }, { once: true });
 
-// ADMIN PANEL WS HANDLERS & INTERACTIONS
-socket.on("lobby_status", (data) => {
-    gameStarted = data.game_started;
-    
-    if (gameStarted) {
-        // If the game has already started, immediately route to the racing view
-        adminPanel.classList.remove("active");
-        liveLeaderboard.classList.add("active");
-        
-        // Sync players active state and 3D positions
-        sync3DPlayers(data.players);
-        updateLiveLeaderboard();
-        return;
-    }
-    
-    connectedCount.innerText = data.players.length;
+function updateLobbyUI(players) {
+    connectedCount.innerText = players.length;
     lobbyPlayersGrid.innerHTML = "";
-    
-    if (data.players.length === 0) {
+
+    if (players.length === 0) {
         lobbyPlayersGrid.innerHTML = `<div class="no-players">Đang đợi các thuyền trưởng tham gia...</div>`;
         startGameBtn.disabled = true;
         startButtonEnabled = false;
         return;
     }
-    
-    // Render joined players in Lobby panel list
-    data.players.forEach(p => {
+
+    players.forEach((p) => {
         const badge = document.createElement("div");
         badge.className = "player-lobby-badge";
         badge.innerHTML = `
@@ -506,13 +500,85 @@ socket.on("lobby_status", (data) => {
         lobbyPlayersGrid.appendChild(badge);
     });
 
-    // Populate active players in 3D Scene
-    sync3DPlayers(data.players);
-    
-    // Enable start game button if there are players
+    sync3DPlayers(players);
     startGameBtn.disabled = false;
     startButtonEnabled = true;
-});
+}
+
+async function refreshAdminPresence() {
+    if (!ablyChannel) return;
+    const members = await ablyChannel.presence.get();
+    const players = presenceToPlayers(members);
+    if (!gameStarted) {
+        updateLobbyUI(players);
+    } else {
+        sync3DPlayers(players);
+        updateLiveLeaderboard();
+    }
+}
+
+function setupAdminAbly(channel) {
+    channel.presence.subscribe(() => {
+        refreshAdminPresence();
+    });
+
+    channel.subscribe("pos", (msg) => {
+        const data = msg.data;
+        if (!data?.id) return;
+
+        if (activePlayers[data.id]) {
+            activePlayers[data.id].progress = data.progress ?? activePlayers[data.id].progress;
+            activePlayers[data.id].rank = data.rank ?? activePlayers[data.id].rank;
+            activePlayers[data.id].targetX = data.x;
+            activePlayers[data.id].targetZ = data.z;
+            updateLiveLeaderboard();
+            trackWinnerFromPos(data);
+        } else {
+            refreshAdminPresence();
+        }
+    });
+}
+
+function trackWinnerFromPos(data) {
+    if ((data.progress ?? 0) < 1) return;
+    if (adminWinners.find((w) => w.sid === data.id)) return;
+
+    const p = activePlayers[data.id];
+    adminWinners.push({
+        sid: data.id,
+        name: p?.name || "Player",
+        color: p?.color || "#fff",
+        rank: adminWinners.length + 1,
+    });
+
+    if (activePlayers[data.id]) {
+        activePlayers[data.id].rank = adminWinners.length;
+    }
+
+    if (adminWinners.length >= 3) {
+        endGameAsAdmin();
+    }
+}
+
+async function endGameAsAdmin() {
+    gameStarted = false;
+    const members = await ablyChannel.presence.get();
+    const players = presenceToPlayers(members);
+
+    ablyChannel.publish("admin", {
+        type: "game_over",
+        t: Date.now(),
+        winners: adminWinners,
+        players,
+    });
+
+    onGameOver({ winners: adminWinners, players });
+}
+
+function publishAdmin(type) {
+    if (!ablyChannel) return;
+    ablyChannel.publish("admin", { type, t: Date.now() });
+}
 
 function sync3DPlayers(playersList) {
     // 1. Remove old labels/meshes if disconnected
@@ -620,29 +686,41 @@ function sync3DPlayers(playersList) {
     });
 }
 
-// ADMIN TRIGGERS START GAME
 startGameBtn.addEventListener("click", () => {
     if (!startButtonEnabled) return;
-    socket.emit("start_game");
+    adminWinners = [];
+    gameStarted = true;
+    gamePaused = false;
+    publishAdmin("start");
+    onGameStarted();
 });
 
-// ADMIN FORCE RESETS GAME STATE
 if (resetGameBtn) {
     resetGameBtn.addEventListener("click", () => {
-        if (confirm("Bạn có chắc chắn muốn buộc reset toàn bộ trạng thái trò chơi về Phòng chờ không? Các người chơi đã tham gia sẽ được giữ lại nhưng điểm số sẽ được reset về 0.")) {
-            socket.emit("reset_game");
+        if (
+            confirm(
+                "Bạn có chắc chắn muốn buộc reset toàn bộ trạng thái trò chơi về Phòng chờ không? Các người chơi đã tham gia sẽ được giữ lại nhưng điểm số sẽ được reset về 0."
+            )
+        ) {
+            adminWinners = [];
+            gameStarted = false;
+            gamePaused = false;
+            publishAdmin("reset");
+            onGameReset();
         }
     });
 }
 
-// ADMIN TOGGLE PAUSE GAME
 if (pauseGameBtn) {
     pauseGameBtn.addEventListener("click", () => {
-        socket.emit("toggle_pause");
+        if (!gameStarted) return;
+        gamePaused = !gamePaused;
+        publishAdmin(gamePaused ? "pause" : "resume");
+        onPauseStatus({ paused: gamePaused });
     });
 }
 
-socket.on("pause_status", (data) => {
+function onPauseStatus(data) {
     if (pauseGameBtn) {
         if (data.paused) {
             pauseGameBtn.innerText = "TIẾP TỤC";
@@ -652,9 +730,9 @@ socket.on("pause_status", (data) => {
             pauseGameBtn.classList.remove("paused");
         }
     }
-});
+}
 
-socket.on("game_reset", () => {
+function onGameReset() {
     gameStarted = false;
     adminPanel.classList.add("active");
     liveLeaderboard.classList.remove("active");
@@ -697,45 +775,24 @@ socket.on("game_reset", () => {
     });
     
     updateLiveLeaderboard();
-});
+    refreshAdminPresence();
+}
 
-socket.on("game_started", () => {
-    gameStarted = true;
+function onGameStarted() {
     adminPanel.classList.remove("active");
     liveLeaderboard.classList.add("active");
-    
+
     if (pauseGameBtn) {
         pauseGameBtn.style.display = "block";
         pauseGameBtn.innerText = "TẠM DỪNG";
         pauseGameBtn.classList.remove("paused");
     }
-    
+
     sfxHorn.play().catch(() => {});
-    
-    // Setup camera dynamically focused on start side view, tracking will kick in immediately
     controls.target.set(0, 10, START_Z);
     camera.position.set(-350, 90, START_Z);
-});
-
-// REAL-TIME RACING MOVEMENT BROADCASTS
-socket.on("progress_update", (data) => {
-    if (activePlayers[data.sid]) {
-        activePlayers[data.sid].progress = data.progress;
-        activePlayers[data.sid].rank = data.rank;
-        
-        updateLiveLeaderboard();
-    }
-});
-
-socket.on("player_finished", (data) => {
-    if (activePlayers[data.sid]) {
-        activePlayers[data.sid].progress = 1.0;
-        activePlayers[data.sid].rank = data.rank;
-        
-        sfxHorn.play().catch(() => {});
-        updateLiveLeaderboard();
-    }
-});
+    refreshAdminPresence();
+}
 
 function updateLiveLeaderboard() {
     // Sort players by progress descending
@@ -765,8 +822,7 @@ function updateLiveLeaderboard() {
     });
 }
 
-// GAME OVER & EXPLOSION CEREMONY
-socket.on("game_over", (data) => {
+function onGameOver(data) {
     gameStarted = false;
     liveLeaderboard.classList.remove("active");
     podiumScreen.classList.add("active");
@@ -828,7 +884,7 @@ socket.on("game_over", (data) => {
             }
         }
     });
-});
+}
 
 function triggerAdminConfetti() {
     const end = Date.now() + (8 * 1000);
@@ -853,13 +909,30 @@ function triggerAdminConfetti() {
     }());
 }
 
-// START
+async function initAdminAbly() {
+    try {
+        const clientId = createPlayerId().replace("player", "admin");
+        const { channel } = await connectAbly({
+            clientId,
+            name: "Admin",
+            color: "#ffffff",
+            role: "admin",
+        });
+        ablyChannel = channel;
+        setupAdminAbly(channel);
+        await refreshAdminPresence();
+    } catch (err) {
+        console.error("Admin Ably connect failed:", err);
+    }
+}
+
 try {
     if (!isWebGLAvailable()) {
         throw new Error("WebGL is not supported in this browser/device.");
     }
     init3D();
     animate();
+    initAdminAbly();
 } catch (e) {
     console.error("3D Graphics Initialization Failed. Applying 2D Fallback.", e);
     apply2DFallback();
