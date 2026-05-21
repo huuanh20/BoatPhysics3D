@@ -10,6 +10,8 @@ import {
 } from "./ably-realtime.js";
 import { QUESTIONS } from "./questions.js";
 
+const TARGET_CORRECT_ANSWERS = 15;
+
 let ablyChannel = null;
 let myClientId = null;
 let gameStarted = false;
@@ -685,7 +687,7 @@ function onGameStarted() {
     gamePaused = false;
     quizScore = 0;
     quizQueueIdx = 0;
-    quizQueue = QUESTIONS.map((_, i) => i);
+    quizQueue = QUESTIONS.map((_, i) => i).sort(() => Math.random() - 0.5);
     currentProgress = 0;
 
     waitingScreen.classList.remove("active");
@@ -731,8 +733,8 @@ function sendNextQuestion(lastCorrect = null) {
         question_text: q.question,
         options: q.options,
         num_answered: quizScore,
-        total_questions: QUESTIONS.length,
-        progress: Math.min(1, quizScore / QUESTIONS.length),
+        total_questions: TARGET_CORRECT_ANSWERS,
+        progress: Math.min(1, quizScore / TARGET_CORRECT_ANSWERS),
     };
 
     if (lastCorrect !== null) {
@@ -776,7 +778,7 @@ function handleLocalAnswer(answerIdx) {
         quizQueueIdx += 1;
     }
 
-    currentProgress = Math.min(1, quizScore / QUESTIONS.length);
+    currentProgress = Math.min(1, quizScore / TARGET_CORRECT_ANSWERS);
     myPlayer.progress = currentProgress;
 
     if (myPlayer) {
@@ -788,7 +790,7 @@ function handleLocalAnswer(answerIdx) {
 
     maybePublishPosition();
 
-    const finished = quizScore >= QUESTIONS.length;
+    const finished = quizScore >= TARGET_CORRECT_ANSWERS;
     if (finished && myPlayer.rank == null) {
         // Calculate dynamic rank based on competitors who have already finished (progress >= 1.0)
         let finishedCount = 0;

@@ -1,4 +1,5 @@
 import os
+import random
 from flask import Flask, send_from_directory, request
 from flask_socketio import SocketIO, emit
 
@@ -311,6 +312,7 @@ QUESTIONS = [
 ]
 
 # Game State
+TARGET_CORRECT_ANSWERS = 15
 players = {}       # Map of sid -> player details
 game_started = False
 game_paused = False
@@ -363,7 +365,7 @@ def handle_reset_game():
     for sid, p in players.items():
         p['score'] = 0
         p['current_q_idx'] = 0
-        p['queue'] = list(range(len(QUESTIONS)))
+        p['queue'] = random.sample(range(len(QUESTIONS)), len(QUESTIONS))
         p['progress'] = 0.0
         p['rank'] = None
         
@@ -408,7 +410,7 @@ def handle_join_game(data):
         'color': color,
         'score': 0,
         'current_q_idx': 0,
-        'queue': list(range(len(QUESTIONS))), # Queue of question indices to answer
+        'queue': random.sample(range(len(QUESTIONS)), len(QUESTIONS)), # Shuffled queue
         'progress': 0.0,
         'rank': None,
         'last_answer_time': 0
@@ -430,7 +432,7 @@ def handle_join_game(data):
             'question_text': QUESTIONS[q_idx]['question'],
             'options': QUESTIONS[q_idx]['options'],
             'num_answered': players[sid]['score'],
-            'total_questions': len(QUESTIONS),
+            'total_questions': TARGET_CORRECT_ANSWERS,
             'progress': players[sid]['progress']
         }
         emit('next_question', question_data, room=sid)
@@ -446,7 +448,7 @@ def handle_start_game():
     for sid, p in players.items():
         p['score'] = 0
         p['current_q_idx'] = 0
-        p['queue'] = list(range(len(QUESTIONS)))
+        p['queue'] = random.sample(range(len(QUESTIONS)), len(QUESTIONS))
         p['progress'] = 0.0
         p['rank'] = None
         
@@ -515,10 +517,10 @@ def handle_submit_answer(data):
         player['current_q_idx'] += 1
         
     # Calculate progress based on unique correct answers
-    player['progress'] = min(1.0, player['score'] / len(QUESTIONS))
+    player['progress'] = min(1.0, player['score'] / TARGET_CORRECT_ANSWERS)
     
     # Check if this player just finished the race
-    finished = (player['score'] == len(QUESTIONS))
+    finished = (player['score'] >= TARGET_CORRECT_ANSWERS)
     if finished and player['rank'] is None:
         rank = len(winners) + 1
         player['rank'] = rank
@@ -545,7 +547,7 @@ def handle_submit_answer(data):
             bots_to_finish = bots_in_game[:2]
             for bot in bots_to_finish:
                 bot_rank = len(winners) + 1
-                bot['score'] = len(QUESTIONS)
+                bot['score'] = TARGET_CORRECT_ANSWERS
                 bot['progress'] = 1.0
                 bot['rank'] = bot_rank
                 winners.append({
