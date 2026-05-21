@@ -1,6 +1,6 @@
 {
   "buildCommand": "",
-  "outputDirectory": ".",
+  "outputDirectory": "frontend",
   "rewrites": [
     { "source": "/admin", "destination": "/admin.html" }
   ],
