@@ -65,25 +65,53 @@ export async function connectAbly({ clientId, name, color, role }) {
 
   await waitForConnection(ably);
   const channel = ably.channels.get(CHANNEL_NAME);
-  await channel.presence.enter({ name, color, role });
+  await presenceEnter(channel, { name, color, role });
   return { ably, channel, clientId };
 }
 
+/** ably.min-1.js (callback) vs ably.min-2.js (promise) — normalize to array */
+function normalizePresenceList(raw) {
+  if (Array.isArray(raw)) return raw;
+  if (raw?.items && Array.isArray(raw.items)) return raw.items;
+  return [];
+}
+
+function promisifyPresenceGet(channel) {
+  return new Promise((resolve, reject) => {
+    const result = channel.presence.get();
+    if (result && typeof result.then === "function") {
+      result.then((m) => resolve(normalizePresenceList(m))).catch(reject);
+      return;
+    }
+    channel.presence.get((err, members) => {
+      if (err) reject(err);
+      else resolve(normalizePresenceList(members));
+    });
+  });
+}
+
+function presenceEnter(channel, data) {
+  return new Promise((resolve, reject) => {
+    const result = channel.presence.enter(data);
+    if (result && typeof result.then === "function") {
+      result.then(resolve).catch(reject);
+      return;
+    }
+    channel.presence.enter(data, (err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+}
+
 export async function getPresenceMembers(channel) {
-  const members = await channel.presence.get();
-  return members
-    .filter((m) => m.data?.role === "player")
-    .map((m) => ({
-      id: m.clientId,
-      name: m.data?.name || "Anonymous",
-      color: m.data?.color || "#e74c3c",
-      progress: m.data?.progress ?? 0,
-      rank: m.data?.rank ?? null,
-    }));
+  const members = await promisifyPresenceGet(channel);
+  return presenceToPlayers(members);
 }
 
 export function presenceToPlayers(members) {
-  return members
+  const list = normalizePresenceList(members);
+  return list
     .filter((m) => m.data?.role === "player")
     .map((m) => ({
       id: m.clientId,

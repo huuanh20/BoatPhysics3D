@@ -6,7 +6,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import {
   connectAbly,
   createPlayerId,
-  presenceToPlayers,
+  getPresenceMembers,
 } from "./ably-realtime.js";
 
 let ablyChannel = null;
@@ -507,13 +507,16 @@ function updateLobbyUI(players) {
 
 async function refreshAdminPresence() {
     if (!ablyChannel) return;
-    const members = await ablyChannel.presence.get();
-    const players = presenceToPlayers(members);
-    if (!gameStarted) {
-        updateLobbyUI(players);
-    } else {
-        sync3DPlayers(players);
-        updateLiveLeaderboard();
+    try {
+        const players = await getPresenceMembers(ablyChannel);
+        if (!gameStarted) {
+            updateLobbyUI(players);
+        } else {
+            sync3DPlayers(players);
+            updateLiveLeaderboard();
+        }
+    } catch (e) {
+        console.warn("admin presence sync failed:", e);
     }
 }
 
@@ -562,8 +565,7 @@ function trackWinnerFromPos(data) {
 
 async function endGameAsAdmin() {
     gameStarted = false;
-    const members = await ablyChannel.presence.get();
-    const players = presenceToPlayers(members);
+    const players = await getPresenceMembers(ablyChannel);
 
     ablyChannel.publish("admin", {
         type: "game_over",

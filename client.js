@@ -5,7 +5,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import {
   connectAbly,
   createPlayerId,
-  presenceToPlayers,
+  getPresenceMembers,
   PUBLISH_INTERVAL_MS,
 } from "./ably-realtime.js";
 import { QUESTIONS } from "./questions.js";
@@ -533,9 +533,12 @@ function maybePublishPosition() {
 
 async function refreshLobbyFromPresence() {
     if (!ablyChannel) return;
-    const members = await ablyChannel.presence.get();
-    const players = presenceToPlayers(members);
-    syncCompetitors(players);
+    try {
+        const players = await getPresenceMembers(ablyChannel);
+        syncCompetitors(players);
+    } catch (e) {
+        console.warn("presence sync failed:", e);
+    }
 }
 
 function setupAblyListeners(channel) {
