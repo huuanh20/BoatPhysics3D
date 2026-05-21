@@ -2,7 +2,7 @@ import os
 from flask import Flask, send_from_directory, request
 from flask_socketio import SocketIO, emit
 
-app = Flask(__name__, static_folder='frontend', static_url_path='')
+app = Flask(__name__, static_folder='../frontend', static_url_path='')
 app.config['SECRET_KEY'] = 'vietnam_to_france_boat_racing_secret!'
 socketio = SocketIO(app, cors_allowed_origins="*")
 
@@ -149,12 +149,34 @@ def handle_reset_game():
         'game_started': game_started
     }, broadcast=True)
 
+def clean_name(name):
+    # Ràng buộc độ dài: tối đa 15 ký tự
+    if len(name) > 15:
+        name = name[:12] + "..."
+    # Bộ lọc từ ngữ nhạy cảm (profanity filter)
+    bad_words = ["dm", "vcl", "cl", "cac", "lon", "fuck", "shit"]
+    words = name.split()
+    cleaned = []
+    for w in words:
+        if w.lower() in bad_words:
+            cleaned.append("***")
+        else:
+            cleaned.append(w)
+    return " ".join(cleaned)
+
 @socketio.on('join_game')
 def handle_join_game(data):
     sid = request.sid
-    name = data.get('name', 'Anonymous').strip()
+    raw_name = data.get('name', 'Anonymous').strip()
+    name = clean_name(raw_name)
     color = data.get('color', '#ff0000')
     
+    # Ràng buộc nếu vào muộn sau khi game đã bắt đầu: thêm nhãn [LATE] để báo hiệu
+    if game_started:
+        name = f"[LATE] {name}"
+        if len(name) > 15:
+            name = name[:15]
+            
     players[sid] = {
         'sid': sid,
         'name': name,
@@ -163,7 +185,8 @@ def handle_join_game(data):
         'current_q_idx': 0,
         'queue': list(range(len(QUESTIONS))), # Queue of question indices to answer
         'progress': 0.0,
-        'rank': None
+        'rank': None,
+        'last_answer_time': 0
     }
     
     print(f"Player joined: {name} with color {color} (Game started: {game_started})")
@@ -234,6 +257,16 @@ def handle_submit_answer(data):
         return
         
     player = players[sid]
+    
+    # Ràng buộc chống cheat/spam: Mỗi câu trả lời cách nhau tối thiểu 0.8 giây
+    import time
+    now = time.time()
+    last_time = player.get('last_answer_time', 0)
+    if now - last_time < 0.8:
+        print(f"Anti-spam protection triggered for player: {player['name']} (Answers submitted too fast!)")
+        return
+    player['last_answer_time'] = now
+    
     answer_idx = data.get('answer')
     
     # Get current question index from player's queue

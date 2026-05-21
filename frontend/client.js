@@ -1001,3 +1001,86 @@ function apply2DFallback() {
         container.classList.add("sea-fallback");
     }
 }
+
+// Ngăn chặn copy câu hỏi và câu trả lời (Ràng buộc nghiệp vụ chống gian lận)
+document.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    showCheatWarning("Không thể mở menu chuột phải. Sao chép câu hỏi và câu trả lời bị nghiêm cấm!");
+});
+
+document.addEventListener("copy", (e) => {
+    e.preventDefault();
+    showCheatWarning("Hành vi sao chép nội dung bị nghiêm cấm để bảo vệ tính công bằng!");
+});
+
+document.addEventListener("cut", (e) => {
+    e.preventDefault();
+});
+
+document.addEventListener("keydown", (e) => {
+    // Chặn F12
+    if (e.key === "F12") {
+        e.preventDefault();
+        showCheatWarning("Phím tắt F12 đã bị vô hiệu hóa!");
+        return false;
+    }
+    // Chặn Ctrl+C, Ctrl+X, Ctrl+U, Ctrl+Shift+I, Ctrl+Shift+C, Ctrl+Shift+J
+    if (e.ctrlKey) {
+        const key = e.key.toLowerCase();
+        if (key === "c" || key === "x" || key === "u" || key === "s" || key === "a") {
+            e.preventDefault();
+            showCheatWarning("Không được phép sao chép/chụp mã nguồn!");
+            return false;
+        }
+        if (e.shiftKey && (key === "i" || key === "c" || key === "j")) {
+            e.preventDefault();
+            showCheatWarning("Không thể mở Developer Tools!");
+            return false;
+        }
+    }
+});
+
+// Hàm hiển thị cảnh báo chống gian lận đẹp mắt
+function showCheatWarning(message) {
+    console.warn(`[ANTI-CHEAT] ${message}`);
+    // Tạo notification toast nếu chưa có
+    let toast = document.getElementById("cheat-toast");
+    if (!toast) {
+        toast = document.createElement("div");
+        toast.id = "cheat-toast";
+        toast.style.position = "fixed";
+        toast.style.bottom = "30px";
+        toast.style.left = "50%";
+        toast.style.transform = "translateX(-50%) translateY(100px)";
+        toast.style.background = "rgba(231, 76, 60, 0.95)";
+        toast.style.color = "#ffffff";
+        toast.style.padding = "12px 24px";
+        toast.style.borderRadius = "8px";
+        toast.style.fontSize = "0.9rem";
+        toast.style.fontWeight = "bold";
+        toast.style.fontFamily = "'Montserrat', sans-serif";
+        toast.style.boxShadow = "0 10px 25px rgba(231, 76, 60, 0.5), 0 0 15px rgba(231, 76, 60, 0.3)";
+        toast.style.zIndex = "99999";
+        toast.style.transition = "transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.4s";
+        toast.style.opacity = "0";
+        toast.style.backdropFilter = "blur(10px)";
+        toast.style.border = "1px solid rgba(255, 255, 255, 0.2)";
+        toast.style.pointerEvents = "none";
+        document.body.appendChild(toast);
+    }
+    
+    toast.innerText = `⚠️ ${message}`;
+    toast.style.opacity = "1";
+    toast.style.transform = "translateX(-50%) translateY(0)";
+    
+    // Clear previous timeout if any
+    if (window.cheatToastTimeout) {
+        clearTimeout(window.cheatToastTimeout);
+    }
+    
+    window.cheatToastTimeout = setTimeout(() => {
+        toast.style.opacity = "0";
+        toast.style.transform = "translateX(-50%) translateY(100px)";
+    }, 3000);
+}
+
