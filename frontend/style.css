@@ -58,7 +58,7 @@ body, html {
 
 /* Titles and Typography */
 .glow-text {
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Montserrat', sans-serif;
     font-weight: 900;
     letter-spacing: 2px;
     text-align: center;
@@ -160,7 +160,7 @@ body, html {
 
 /* Buttons */
 .glow-btn {
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Montserrat', sans-serif;
     font-weight: 800;
     font-size: 1rem;
     letter-spacing: 1px;
@@ -350,7 +350,7 @@ body, html {
 
 .answered-counter {
     text-align: center;
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Montserrat', sans-serif;
     font-size: 0.8rem;
     font-weight: 800;
     letter-spacing: 1.5px;
@@ -384,7 +384,7 @@ body, html {
 }
 
 .question-badge {
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Montserrat', sans-serif;
     font-weight: 900;
     font-size: 0.85rem;
     color: #ffffff;
@@ -423,7 +423,7 @@ body, html {
     padding: 18px 24px;
     color: #ffffff; /* Ultra clear white text */
     font-size: 1.1rem;
-    font-family: 'Outfit', sans-serif;
+    font-family: 'Montserrat', sans-serif;
     font-weight: 600; /* Bolder font weight for superb legibility */
     text-align: left;
     display: flex;
@@ -447,7 +447,7 @@ body, html {
     background: rgba(0, 242, 254, 0.1);
     border: 1px solid rgba(0, 242, 254, 0.2);
     color: #00f2fe;
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Montserrat', sans-serif;
     font-weight: 800;
     font-size: 0.95rem;
     transition: all 0.3s;
@@ -503,7 +503,7 @@ body, html {
 }
 
 .feedback-main {
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Montserrat', sans-serif;
     font-size: 3rem;
     font-weight: 900;
     letter-spacing: 3px;
@@ -608,7 +608,7 @@ body, html {
 }
 
 .podium-container h3 {
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Montserrat', sans-serif;
     font-size: 0.8rem;
     font-weight: 800;
     color: #00f2fe;
@@ -651,7 +651,7 @@ body, html {
 }
 
 .winner-rank {
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Montserrat', sans-serif;
     font-weight: 900;
     color: #8da2c4;
 }
@@ -707,7 +707,7 @@ body, html {
 }
 
 .admin-title {
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Montserrat', sans-serif;
     font-weight: 900;
     font-size: 1.3rem;
     letter-spacing: 1px;
@@ -857,7 +857,7 @@ body, html {
 }
 
 .leaderboard-title {
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Montserrat', sans-serif;
     font-weight: 800;
     font-size: 0.8rem;
     color: #00f2fe;
@@ -902,7 +902,7 @@ body, html {
 }
 
 .leader-percent {
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Montserrat', sans-serif;
     color: #00f2fe;
     font-weight: 800;
 }
@@ -1010,14 +1010,14 @@ body, html {
 }
 
 .podium-rank {
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Montserrat', sans-serif;
     font-size: 3rem;
     font-weight: 900;
     margin-bottom: 10px;
 }
 
 .podium-metal {
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Montserrat', sans-serif;
     font-size: 0.8rem;
     font-weight: 800;
     letter-spacing: 1.5px;
