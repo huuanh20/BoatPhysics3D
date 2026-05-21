@@ -658,12 +658,22 @@ function sync3DPlayers(playersList) {
                 // Paint Hull custom color
                 const color = new THREE.Color(p.color);
                 boat.traverse((child) => {
-                    if (child.isMesh) {
-                        if (child.name.includes("hull") || child.name.includes("body") || child.material.name.includes("White") || child.material.name.includes("hull")) {
-                            child.material = child.material.clone();
-                            child.material.color.copy(color);
-                            child.material.roughness = 0.2;
-                        }
+                    if (child.isMesh && child.material) {
+                        const materials = Array.isArray(child.material) ? child.material : [child.material];
+                        materials.forEach((mat, idx) => {
+                            const matName = mat.name || "";
+                            if (matName.includes("acmat_8") || matName.includes("acmat_0") || matName.includes("acmat_13") || matName.includes("acmat_7")) {
+                                const clonedMat = mat.clone();
+                                clonedMat.color.copy(color);
+                                clonedMat.roughness = 0.15;
+                                clonedMat.metalness = 0.45;
+                                if (Array.isArray(child.material)) {
+                                    child.material[idx] = clonedMat;
+                                } else {
+                                    child.material = clonedMat;
+                                }
+                            }
+                        });
                     }
                 });
 
