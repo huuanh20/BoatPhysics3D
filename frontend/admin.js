@@ -137,6 +137,8 @@ function init3D() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.8;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
 
     // Scene
@@ -154,12 +156,24 @@ function init3D() {
     controls.target.set(0, 10, START_Z - 80); // Focus on the start line area
     controls.update();
 
-    // Ambient/Direct light
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    // Ambient/Direct light - Warm sunset theme with stylized high contrast shadow coloring
+    const ambientLight = new THREE.AmbientLight(0x4a5d78, 0.35); // Cool blue-grey shadows to match deep ocean sunset
     scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xfffaed, 1.3);
-    dirLight.position.set(300, 400, -300);
+    const dirLight = new THREE.DirectionalLight(0xffb07c, 1.8); // Brighter, warm sunset orange-gold light
+    dirLight.position.set(250, 350, -200);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 2048;
+    dirLight.shadow.mapSize.height = 2048;
+    dirLight.shadow.camera.near = 0.5;
+    dirLight.shadow.camera.far = 4000;
+    dirLight.shadow.bias = -0.0005;
+
+    const d = 1200;
+    dirLight.shadow.camera.left = -d;
+    dirLight.shadow.camera.right = d;
+    dirLight.shadow.camera.top = d;
+    dirLight.shadow.camera.bottom = -d;
     scene.add(dirLight);
 
     // Water
@@ -177,6 +191,8 @@ function init3D() {
         fog: false,
     });
     water.rotation.x = -Math.PI / 2;
+    water.position.y = 12.0;
+    water.receiveShadow = true;
     scene.add(water);
 
     // Sky & Sun
@@ -349,18 +365,56 @@ function createWorldScenery(scene) {
     // 2. Majestic 3D Volcanic Snow-capped Mountains framing the racing fjord
     function createMountain(x, z, radius, height) {
         const mtGroup = new THREE.Group();
-        mtGroup.position.set(x, 9.0, z);
+        mtGroup.position.set(x, 12.0, z); // Rising directly out of the water plane at y=12.0
 
-        // Rocky grey mountain cone base
+        // Use more segments (radial=8, height=4) to allow jagged procedural displacement
+        const baseGeom = new THREE.ConeGeometry(radius, height, 8, 4);
+        
+        // Procedural vertex displacement for jagged mountain peaks & vertical color gradient
+        const posAttr = baseGeom.attributes.position;
+        const colors = [];
+        for (let i = 0; i < posAttr.count; i++) {
+            const vx = posAttr.getX(i);
+            const vy = posAttr.getY(i);
+            const vz = posAttr.getZ(i);
+            
+            // Calculate how high the vertex is (from 0 at base to 1 at peak)
+            const heightRatio = (vy + height / 2) / height;
+            
+            // Displace only vertices that are above the base (heightRatio > 0.1)
+            if (heightRatio > 0.1) {
+                const noiseScale = radius * 0.15 * heightRatio;
+                // Add some sinusoidal noise and small random perturbation to make it look jagged and natural
+                const dx = (Math.sin(vy * 0.1 + vx * 0.05) * noiseScale * 0.6) + (Math.sin(vx * 0.2 + vz * 0.2) * noiseScale * 0.4);
+                const dz = (Math.cos(vy * 0.1 + vz * 0.05) * noiseScale * 0.6) + (Math.cos(vx * 0.2 + vz * 0.2) * noiseScale * 0.4);
+                const dy = (Math.sin(vx * 0.1) * noiseScale * 0.3);
+                
+                posAttr.setX(i, vx + dx);
+                posAttr.setZ(i, vz + dz);
+                posAttr.setY(i, vy + dy);
+            }
+            
+            // Generate vertical color gradient (deep warm slate/purple-brown at base, transitioning to warmer earth/rock color at peak)
+            const r = 0.18 + 0.35 * heightRatio;
+            const g = 0.16 + 0.22 * heightRatio;
+            const b = 0.22 + 0.12 * heightRatio;
+            colors.push(r, g, b);
+        }
+        baseGeom.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+        baseGeom.computeVertexNormals();
+
+        // Rocky mountain cone base with vertex colors enabled
         const rockMat = new THREE.MeshStandardMaterial({
-            color: 0x475662,
-            roughness: 0.9,
+            vertexColors: true,
+            roughness: 0.85,
             metalness: 0.15,
             flatShading: true
         });
-        const baseGeom = new THREE.ConeGeometry(radius, height, 5); // 5-sided for premium low-poly facets
+
         const baseMesh = new THREE.Mesh(baseGeom, rockMat);
         baseMesh.position.y = height / 2;
+        baseMesh.castShadow = true;
+        baseMesh.receiveShadow = true;
         mtGroup.add(baseMesh);
 
         // Snow-capped peak (smaller white cone stacked on top)
@@ -371,9 +425,36 @@ function createWorldScenery(scene) {
         });
         const snowHeight = height * 0.35;
         const snowRadius = radius * 0.35;
-        const snowGeom = new THREE.ConeGeometry(snowRadius, snowHeight, 5);
+        const snowGeom = new THREE.ConeGeometry(snowRadius, snowHeight, 8, 2);
+        
+        // Procedurally displace the snow cap similarly so it aligns perfectly with the jagged mountain below
+        const snowPosAttr = snowGeom.attributes.position;
+        for (let i = 0; i < snowPosAttr.count; i++) {
+            const vx = snowPosAttr.getX(i);
+            const vy = snowPosAttr.getY(i);
+            const vz = snowPosAttr.getZ(i);
+            
+            // Translate the local coordinates of the snow geometry to match the main mountain's scale/height
+            const globalLocalY = vy + (height - snowHeight); 
+            const heightRatio = (globalLocalY + height / 2) / height;
+            
+            if (heightRatio > 0.1) {
+                const noiseScale = radius * 0.15 * heightRatio;
+                const dx = (Math.sin(globalLocalY * 0.1 + vx * 0.05) * noiseScale * 0.6) + (Math.sin(vx * 0.2 + vz * 0.2) * noiseScale * 0.4);
+                const dz = (Math.cos(globalLocalY * 0.1 + vz * 0.05) * noiseScale * 0.6) + (Math.cos(vx * 0.2 + vz * 0.2) * noiseScale * 0.4);
+                const dy = (Math.sin(vx * 0.1) * noiseScale * 0.3);
+                
+                snowPosAttr.setX(i, vx + dx);
+                snowPosAttr.setZ(i, vz + dz);
+                snowPosAttr.setY(i, vy + dy);
+            }
+        }
+        snowGeom.computeVertexNormals();
+
         const snowMesh = new THREE.Mesh(snowGeom, snowMat);
         snowMesh.position.y = height - (snowHeight / 2) - 0.1;
+        snowMesh.castShadow = true;
+        snowMesh.receiveShadow = true;
         mtGroup.add(snowMesh);
 
         scene.add(mtGroup);
@@ -417,6 +498,8 @@ function createWorldScenery(scene) {
                 (Math.random() - 0.5) * 6,
                 (Math.random() - 0.5) * 6
             );
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
             cloudGroup.add(mesh);
         }
         cloudGroup.position.set(
@@ -436,113 +519,64 @@ function createWorldScenery(scene) {
         finGeom.scale(0.3, 1.0, 1.2); // flatten it sideways to look like a dorsal fin
         const finMat = new THREE.MeshStandardMaterial({ color: 0x455a64, roughness: 0.8, flatShading: true });
         const finMesh = new THREE.Mesh(finGeom, finMat);
+        finMesh.castShadow = true;
+        finMesh.receiveShadow = true;
         finGroup.add(finMesh);
         return finGroup;
     }
 
-    // Helper: Create a Palm Tree
-    function createPalmTree() {
-        const treeGroup = new THREE.Group();
+    /*
+    // Load and Clone high-quality 3D Sketchfab Islands
+    loader.load("helpers/tropical_island/scene.gltf", (gltf) => {
+        console.log("3D Tropical Island loaded successfully!");
+        const islandModel = gltf.scene;
         
-        // Bendy trunk using stacked segment cylinders
-        const trunkMat = new THREE.MeshStandardMaterial({ color: 0x7a5230, roughness: 0.9, flatShading: true });
-        let prevY = 0;
-        const numSegments = 6;
-        for (let j = 0; j < numSegments; j++) {
-            const h = 2.5;
-            const rBottom = 0.6 - j * 0.05;
-            const rTop = 0.55 - j * 0.05;
-            const segGeom = new THREE.CylinderGeometry(rTop, rBottom, h, 5);
-            const segMesh = new THREE.Mesh(segGeom, trunkMat);
-            segMesh.position.y = prevY + h / 2;
-            // curve it slightly
-            segMesh.rotation.z = 0.08 + Math.sin(j * 0.4) * 0.05;
-            segMesh.rotation.x = Math.cos(j * 0.4) * 0.03;
-            treeGroup.add(segMesh);
-            prevY += h - 0.2;
-        }
-
-        // Leaves at the top
-        const leafMat = new THREE.MeshStandardMaterial({ color: 0x2e7d32, roughness: 0.8, flatShading: true });
-        const numLeaves = 5;
-        const topPos = new THREE.Vector3(0, prevY, 0);
-        for (let j = 0; j < numLeaves; j++) {
-            const angle = (j / numLeaves) * Math.PI * 2;
-            const leafGeom = new THREE.ConeGeometry(1.5, 6, 4);
-            leafGeom.rotateX(Math.PI / 2.5); // Droop leaf
-            leafGeom.scale(1, 0.15, 1);
-            const leaf = new THREE.Mesh(leafGeom, leafMat);
-            leaf.position.copy(topPos);
-            leaf.rotation.y = angle;
-            treeGroup.add(leaf);
-        }
+        // Traverse and remove nested skybox, beach, and rock meshes per user request to keep only the beautiful palm trees
+        islandModel.traverse((child) => {
+            if (child.name) {
+                const nameLower = child.name.toLowerCase();
+                if (nameLower.includes("skybox") || nameLower.includes("beach") || nameLower.includes("rock")) {
+                    child.visible = false;
+                    child.scale.set(0, 0, 0); // Shrink to zero to prevent visual/depth issues
+                    return;
+                }
+            }
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+                if (child.material) {
+                    child.material.flatShading = true;
+                    child.material.roughness = 0.85;
+                }
+            }
+        });
         
-        return treeGroup;
-    }
-
-    // Helper: Create an Island
-    function createIsland(x, z, scaleX, scaleZ) {
-        const islandGroup = new THREE.Group();
-        islandGroup.position.set(x, 9.0, z);
-
-        // Sand Base
-        const sandMat = new THREE.MeshStandardMaterial({ color: 0xe6c280, roughness: 0.95, flatShading: true });
-        const sandGeom = new THREE.CylinderGeometry(28, 35, 6, 7);
-        const sand = new THREE.Mesh(sandGeom, sandMat);
-        sand.scale.set(scaleX, 1, scaleZ);
-        islandGroup.add(sand);
-
-        // Grassy Mound on top
-        const grassMat = new THREE.MeshStandardMaterial({ color: 0x388e3c, roughness: 0.9, flatShading: true });
-        const grassGeom = new THREE.DodecahedronGeometry(22, 1);
-        grassGeom.scale(scaleX, 0.4, scaleZ);
-        const grass = new THREE.Mesh(grassGeom, grassMat);
-        grass.position.y = 2.5;
-        islandGroup.add(grass);
-
-        // Some grey rocks
-        const rockMat = new THREE.MeshStandardMaterial({ color: 0x78909c, roughness: 0.8, flatShading: true });
-        const numRocks = 2 + Math.floor(Math.random() * 3);
-        for (let r = 0; r < numRocks; r++) {
-            const rockRad = 2 + Math.random() * 4;
-            const rockGeom = new THREE.SphereGeometry(rockRad, 5, 5);
-            const rock = new THREE.Mesh(rockGeom, rockMat);
-            rock.position.set(
-                (Math.random() - 0.5) * 20 * scaleX,
-                2.0 + rockRad * 0.4,
-                (Math.random() - 0.5) * 20 * scaleZ
-            );
-            islandGroup.add(rock);
-        }
-
-        // Add 2-3 bendy palm trees
-        const numTrees = 2 + Math.floor(Math.random() * 2);
-        for (let t = 0; t < numTrees; t++) {
-            const tree = createPalmTree();
-            tree.scale.set(1.2, 1.2, 1.2);
-            tree.position.set(
-                (Math.random() - 0.5) * 12 * scaleX,
-                3.0,
-                (Math.random() - 0.5) * 12 * scaleZ
-            );
-            // lean tree slightly away from island center
-            tree.rotation.z += (Math.random() - 0.5) * 0.2;
-            islandGroup.add(tree);
-        }
-
-        scene.add(islandGroup);
-    }
-
-    // 2. Spawn 5 beautiful Islands along race lanes (Moved closer for panoramic widescreen visibility)
-    createIsland(-280, 200, 1.2, 1.4); // Island 1 left
-    createIsland(270, 100, 1.3, 1.1);  // Island 2 right
-    createIsland(-290, -100, 1.0, 1.5); // Island 3 left
-    createIsland(280, -280, 1.4, 1.2);  // Island 4 right
-    createIsland(-270, -450, 1.2, 1.3); // Island 5 left
+        // Highly visible, majestic 3D islands situated beautifully outside the racing lanes (x offset of +/- 340-360)
+        const islandPositions = [
+            { x: -350, z: 200, scale: 65.0, rotY: 0 },
+            { x: 350, z: 100, scale: 70.0, rotY: Math.PI * 0.4 },
+            { x: -360, z: -100, scale: 60.0, rotY: Math.PI * 0.8 },
+            { x: 360, z: -300, scale: 75.0, rotY: Math.PI * 1.2 },
+            { x: -350, z: -500, scale: 65.0, rotY: Math.PI * 1.6 }
+        ];
+        
+        islandPositions.forEach((pos) => {
+            const islandClone = islandModel.clone();
+            islandClone.scale.set(pos.scale, pos.scale * 0.8, pos.scale);
+            islandClone.position.set(pos.x, 11.5, pos.z); // submerged beach under y=12.0 water
+            islandClone.rotation.y = pos.rotY;
+            scene.add(islandClone);
+        });
+    }, (xhr) => {
+        console.log("Island model load progress:", (xhr.loaded / xhr.total * 100).toFixed(1) + "%");
+    }, (error) => {
+        console.error("Critical: Failed to load 3D tropical island model from path:", error);
+    });
+    */
 
     // 3. Sunset Lighthouse (Hải đăng cực hạn)
     const lhGroup = new THREE.Group();
-    lhGroup.position.set(270, 9.0, -530);
+    lhGroup.position.set(270, 11.5, -530); // Sit on the 12.0 water level nicely
 
     // Foundation
     const foundationMat = new THREE.MeshStandardMaterial({ color: 0x546e7a, roughness: 0.8, flatShading: true });
@@ -610,7 +644,7 @@ function createWorldScenery(scene) {
     lhGroup.add(sceneryLighthouseBeam);
 
     lhGroup.scale.set(1.2, 1.2, 1.2);
-    lhGroup.position.set(280, 9.0, FINISH_Z - 20); // Align with finish gate
+    lhGroup.position.set(280, 11.5, FINISH_Z - 20); // Align with finish gate
     scene.add(lhGroup);
 
     // 4. Flapping Seagulls Flock
@@ -1507,6 +1541,14 @@ function sync3DPlayers(playersList) {
                 const currentZ = START_Z - ((activePlayers[p.sid] ? activePlayers[p.sid].progress : p.progress || 0.0) * TOTAL_DIST);
                 boat.position.set(laneX, 13, currentZ);
                 boat.rotation.y = Math.PI * 0.5; // Face towards -Z (France)
+                
+                boat.traverse((child) => {
+                    if (child.isMesh) {
+                        child.castShadow = true;
+                        child.receiveShadow = true;
+                    }
+                });
+                
                 scene.add(boat);
 
                 // Paint Hull custom color
