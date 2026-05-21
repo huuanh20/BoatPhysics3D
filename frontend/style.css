@@ -398,10 +398,12 @@ body, html {
 }
 
 .question-title {
-    font-family: 'Be Vietnam Pro', sans-serif;
+    font-family: "Montserrat", sans-serif;
+    font-optical-sizing: auto;
+    font-weight: 800;
+    font-style: normal;
     font-size: 1.35rem;
     line-height: 1.5;
-    font-weight: 600;
     margin-bottom: 30px;
     color: #f8fafc;
     text-shadow: 0 2px 8px rgba(255, 255, 255, 0.15), 0 2px 4px rgba(0, 0, 0, 0.4);
