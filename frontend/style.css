@@ -368,12 +368,12 @@ body, html {
     max-width: 850px;
     margin: 0 auto;
     padding: 35px 40px;
-    background: rgba(6, 11, 25, 0.18); /* Premium cyber-hud transparent glass */
-    backdrop-filter: blur(6px); /* Soft blur to see the speeding boat behind clearly */
-    -webkit-backdrop-filter: blur(6px);
-    border: 1px solid rgba(0, 242, 254, 0.3);
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4), 
-                0 0 30px rgba(0, 242, 254, 0.1);
+    background: rgba(6, 11, 25, 0.05); /* Premium cyber-hud highly transparent glass */
+    backdrop-filter: blur(4px); /* Light blur to see the speeding boat behind clearly */
+    -webkit-backdrop-filter: blur(4px);
+    border: 1px solid rgba(0, 242, 254, 0.15);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3), 
+                0 0 30px rgba(0, 242, 254, 0.05);
     border-radius: 24px;
 }
 
@@ -418,8 +418,8 @@ body, html {
 }
 
 .option-btn {
-    background: rgba(10, 18, 36, 0.2); /* Floating glassy buttons */
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(10, 18, 36, 0.06); /* Highly transparent floating glassy buttons */
+    border: 1px solid rgba(255, 255, 255, 0.05);
     border-radius: 16px;
     padding: 18px 24px;
     color: #e2e8f0;
@@ -432,10 +432,10 @@ body, html {
     gap: 20px;
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
     letter-spacing: 0.1px;
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
 }
 
 .option-key {

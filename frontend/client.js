@@ -221,9 +221,11 @@ function init3D() {
         // Attach waving Vietnam flag to the stern
         attachVietnamFlag(boatMesh);
 
-        // Apply initial color if already joined
+        // Apply initial color (either joined player color or lobby selected color)
         if (myPlayer) {
             applyBoatColor(myPlayer.color);
+        } else {
+            applyBoatColor(selectedColor);
         }
     });
 
@@ -245,8 +247,10 @@ function applyBoatColor(colorHex) {
                 if (matName.includes("acmat_8") || matName.includes("acmat_0") || matName.includes("acmat_13") || matName.includes("acmat_7")) {
                     const clonedMat = mat.clone();
                     clonedMat.color.copy(color);
+                    clonedMat.map = null; // Clear base texture map to display pristine vibrant custom colors!
                     clonedMat.roughness = 0.15;
                     clonedMat.metalness = 0.45;
+                    clonedMat.needsUpdate = true;
                     if (Array.isArray(child.material)) {
                         child.material[idx] = clonedMat;
                     } else {
@@ -362,8 +366,10 @@ function syncCompetitors(playersList) {
                             if (matName.includes("acmat_8") || matName.includes("acmat_0") || matName.includes("acmat_13") || matName.includes("acmat_7")) {
                                 const clonedMat = mat.clone();
                                 clonedMat.color.copy(color);
+                                clonedMat.map = null; // Clear base texture map to display pristine vibrant custom colors!
                                 clonedMat.roughness = 0.15;
                                 clonedMat.metalness = 0.45;
+                                clonedMat.needsUpdate = true;
                                 if (Array.isArray(child.material)) {
                                     child.material[idx] = clonedMat;
                                 } else {
@@ -514,6 +520,7 @@ colorButtons.forEach(btn => {
         colorButtons.forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
         selectedColor = btn.getAttribute("data-color");
+        applyBoatColor(selectedColor); // Apply color in real-time in lobby!
     });
 });
 

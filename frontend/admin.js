@@ -665,8 +665,10 @@ function sync3DPlayers(playersList) {
                             if (matName.includes("acmat_8") || matName.includes("acmat_0") || matName.includes("acmat_13") || matName.includes("acmat_7")) {
                                 const clonedMat = mat.clone();
                                 clonedMat.color.copy(color);
+                                clonedMat.map = null;
                                 clonedMat.roughness = 0.15;
                                 clonedMat.metalness = 0.45;
+                                clonedMat.needsUpdate = true;
                                 if (Array.isArray(child.material)) {
                                     child.material[idx] = clonedMat;
                                 } else {
