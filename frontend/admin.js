@@ -582,6 +582,54 @@ function publishAdmin(type) {
     ablyChannel.publish("admin", { type, t: Date.now() });
 }
 
+function paintBoat(boatGroup, colorHex) {
+    if (!boatGroup) return;
+    const color = new THREE.Color(colorHex);
+    boatGroup.traverse((child) => {
+        if (child.isMesh) {
+            // Delete vertex colors to prevent them from overriding the material color
+            if (child.geometry && child.geometry.attributes.color) {
+                child.geometry.deleteAttribute('color');
+            }
+            
+            const processMaterial = (mat) => {
+                const matName = mat.name || "";
+                const meshName = child.name || "";
+                
+                // Check if this is one of the fiberglass/hull parts
+                const isHullMat = matName.includes("acmat_8") || matName.includes("acmat_0") || matName.includes("acmat_13") || matName.includes("acmat_7");
+                const isHullMesh = meshName.includes("Object_8") || meshName.includes("Object_0") || meshName.includes("Object_13") || meshName.includes("Object_7") || meshName.includes("Object_14");
+                
+                if (isHullMat || isHullMesh) {
+                    // Create a brand-new material to bypass any glTF-specific custom shader properties or vertex colors
+                    return new THREE.MeshStandardMaterial({
+                        color: color,
+                        roughness: 0.15,
+                        metalness: 0.45,
+                        name: matName ? matName + "_painted" : "hull_painted",
+                        vertexColors: false // Ensure no vertex colors interfere
+                    });
+                }
+                return null;
+            };
+
+            if (Array.isArray(child.material)) {
+                for (let i = 0; i < child.material.length; i++) {
+                    const newM = processMaterial(child.material[i]);
+                    if (newM) {
+                        child.material[i] = newM;
+                    }
+                }
+            } else if (child.material) {
+                const newM = processMaterial(child.material);
+                if (newM) {
+                    child.material = newM;
+                }
+            }
+        }
+    });
+}
+
 function sync3DPlayers(playersList) {
     // 1. Remove old labels/meshes if disconnected
     const currentSids = playersList.map(p => p.sid);
@@ -656,28 +704,7 @@ function sync3DPlayers(playersList) {
                 scene.add(boat);
 
                 // Paint Hull custom color
-                const color = new THREE.Color(p.color);
-                boat.traverse((child) => {
-                    if (child.isMesh && child.material) {
-                        const materials = Array.isArray(child.material) ? child.material : [child.material];
-                        materials.forEach((mat, idx) => {
-                            const matName = mat.name || "";
-                            if (matName.includes("acmat_8") || matName.includes("acmat_0") || matName.includes("acmat_13") || matName.includes("acmat_7")) {
-                                const clonedMat = mat.clone();
-                                clonedMat.color.copy(color);
-                                clonedMat.map = null;
-                                clonedMat.roughness = 0.15;
-                                clonedMat.metalness = 0.45;
-                                clonedMat.needsUpdate = true;
-                                if (Array.isArray(child.material)) {
-                                    child.material[idx] = clonedMat;
-                                } else {
-                                    child.material = clonedMat;
-                                }
-                            }
-                        });
-                    }
-                });
+                paintBoat(boat, p.color);
 
                 // Attach flying Vietnam flag to the stern
                 attachVietnamFlag(boat);
@@ -691,6 +718,10 @@ function sync3DPlayers(playersList) {
         } else {
             // Already exists, keep lane offsets but update names and stats
             activePlayers[p.sid].name = p.name;
+            // Update color in real-time if player customized their boat in the lobby
+            if (activePlayers[p.sid].mesh && activePlayers[p.sid].color !== p.color) {
+                paintBoat(activePlayers[p.sid].mesh, p.color);
+            }
             activePlayers[p.sid].color = p.color;
             activePlayers[p.sid].progress = p.progress || 0.0;
             activePlayers[p.sid].rank = p.rank || null;

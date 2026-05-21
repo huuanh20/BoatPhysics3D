@@ -236,30 +236,57 @@ function init3D() {
     window.addEventListener("resize", onWindowResize);
 }
 
-function applyBoatColor(colorHex) {
-    if (!boatMesh) return;
+function paintBoat(boatGroup, colorHex) {
+    if (!boatGroup) return;
     const color = new THREE.Color(colorHex);
-    boatMesh.traverse((child) => {
-        if (child.isMesh && child.material) {
-            const materials = Array.isArray(child.material) ? child.material : [child.material];
-            materials.forEach((mat, idx) => {
+    boatGroup.traverse((child) => {
+        if (child.isMesh) {
+            // Delete vertex colors to prevent them from overriding the material color
+            if (child.geometry && child.geometry.attributes.color) {
+                child.geometry.deleteAttribute('color');
+            }
+            
+            const processMaterial = (mat) => {
                 const matName = mat.name || "";
-                if (matName.includes("acmat_8") || matName.includes("acmat_0") || matName.includes("acmat_13") || matName.includes("acmat_7")) {
-                    const clonedMat = mat.clone();
-                    clonedMat.color.copy(color);
-                    clonedMat.map = null; // Clear base texture map to display pristine vibrant custom colors!
-                    clonedMat.roughness = 0.15;
-                    clonedMat.metalness = 0.45;
-                    clonedMat.needsUpdate = true;
-                    if (Array.isArray(child.material)) {
-                        child.material[idx] = clonedMat;
-                    } else {
-                        child.material = clonedMat;
+                const meshName = child.name || "";
+                
+                // Check if this is one of the fiberglass/hull parts
+                const isHullMat = matName.includes("acmat_8") || matName.includes("acmat_0") || matName.includes("acmat_13") || matName.includes("acmat_7");
+                const isHullMesh = meshName.includes("Object_8") || meshName.includes("Object_0") || meshName.includes("Object_13") || meshName.includes("Object_7") || meshName.includes("Object_14");
+                
+                if (isHullMat || isHullMesh) {
+                    // Create a brand-new material to bypass any glTF-specific custom shader properties or vertex colors
+                    return new THREE.MeshStandardMaterial({
+                        color: color,
+                        roughness: 0.15,
+                        metalness: 0.45,
+                        name: matName ? matName + "_painted" : "hull_painted",
+                        vertexColors: false // Ensure no vertex colors interfere
+                    });
+                }
+                return null;
+            };
+
+            if (Array.isArray(child.material)) {
+                for (let i = 0; i < child.material.length; i++) {
+                    const newM = processMaterial(child.material[i]);
+                    if (newM) {
+                        child.material[i] = newM;
                     }
                 }
-            });
+            } else if (child.material) {
+                const newM = processMaterial(child.material);
+                if (newM) {
+                    child.material = newM;
+                }
+            }
         }
     });
+}
+
+function applyBoatColor(colorHex) {
+    if (!boatMesh) return;
+    paintBoat(boatMesh, colorHex);
 }
 
 // Generate Olympic parallel swimming lane markers on Client
@@ -357,28 +384,7 @@ function syncCompetitors(playersList) {
                 scene.add(boat);
 
                 // Paint Hull custom color
-                const color = new THREE.Color(p.color);
-                boat.traverse((child) => {
-                    if (child.isMesh && child.material) {
-                        const materials = Array.isArray(child.material) ? child.material : [child.material];
-                        materials.forEach((mat, idx) => {
-                            const matName = mat.name || "";
-                            if (matName.includes("acmat_8") || matName.includes("acmat_0") || matName.includes("acmat_13") || matName.includes("acmat_7")) {
-                                const clonedMat = mat.clone();
-                                clonedMat.color.copy(color);
-                                clonedMat.map = null; // Clear base texture map to display pristine vibrant custom colors!
-                                clonedMat.roughness = 0.15;
-                                clonedMat.metalness = 0.45;
-                                clonedMat.needsUpdate = true;
-                                if (Array.isArray(child.material)) {
-                                    child.material[idx] = clonedMat;
-                                } else {
-                                    child.material = clonedMat;
-                                }
-                            }
-                        });
-                    }
-                });
+                paintBoat(boat, p.color);
 
                 // Attach waving flag to rival boat
                 attachVietnamFlag(boat);
@@ -393,6 +399,11 @@ function syncCompetitors(playersList) {
             activePlayers[p.sid].progress = p.progress || 0.0;
             activePlayers[p.sid].rank = p.rank || null;
             activePlayers[p.sid].laneX = laneX;
+            // Dynamic color sync: Update rival boat color instantly if customized
+            if (activePlayers[p.sid].mesh && activePlayers[p.sid].color !== p.color) {
+                activePlayers[p.sid].color = p.color;
+                paintBoat(activePlayers[p.sid].mesh, p.color);
+            }
         }
     });
 }

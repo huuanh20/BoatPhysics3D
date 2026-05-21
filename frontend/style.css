@@ -368,12 +368,12 @@ body, html {
     max-width: 850px;
     margin: 0 auto;
     padding: 35px 40px;
-    background: rgba(6, 11, 25, 0.05); /* Premium cyber-hud highly transparent glass */
-    backdrop-filter: blur(4px); /* Light blur to see the speeding boat behind clearly */
-    -webkit-backdrop-filter: blur(4px);
-    border: 1px solid rgba(0, 242, 254, 0.15);
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3), 
-                0 0 30px rgba(0, 242, 254, 0.05);
+    background: rgba(6, 11, 25, 0.75); /* Darkened glassmorphic background for ultra-high text contrast */
+    backdrop-filter: blur(16px); /* Heavy backdrop blur to separate HUD beautifully from the dynamic sea waves */
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(0, 242, 254, 0.3); /* Stronger accent border */
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 
+                0 0 35px rgba(0, 242, 254, 0.12);
     border-radius: 24px;
 }
 
@@ -405,8 +405,8 @@ body, html {
     font-size: 1.35rem;
     line-height: 1.5;
     margin-bottom: 30px;
-    color: #f8fafc;
-    text-shadow: 0 2px 8px rgba(255, 255, 255, 0.15), 0 2px 4px rgba(0, 0, 0, 0.4);
+    color: #ffffff; /* Pristine white */
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
     letter-spacing: -0.01em;
     text-rendering: optimizeLegibility;
 }
@@ -418,24 +418,24 @@ body, html {
 }
 
 .option-btn {
-    background: rgba(10, 18, 36, 0.06); /* Highly transparent floating glassy buttons */
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(10, 18, 36, 0.85); /* Deep rich dark background for ultimate readability against waves */
+    border: 1px solid rgba(255, 255, 255, 0.15); /* More visible border */
     border-radius: 16px;
     padding: 18px 24px;
-    color: #e2e8f0;
+    color: #ffffff; /* Ultra clear white text */
     font-size: 1.1rem;
     font-family: 'Outfit', sans-serif;
-    font-weight: 500;
+    font-weight: 600; /* Bolder font weight for superb legibility */
     text-align: left;
     display: flex;
     align-items: center;
     gap: 20px;
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
     letter-spacing: 0.1px;
-    backdrop-filter: blur(2px);
-    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
 }
 
 .option-key {
@@ -456,12 +456,12 @@ body, html {
 }
 
 .option-btn:hover {
-    background: rgba(0, 242, 254, 0.06);
-    border-color: rgba(0, 242, 254, 0.5);
+    background: rgba(15, 28, 54, 0.95); /* Deep rich cyber-blue for high contrast feedback */
+    border-color: rgba(0, 242, 254, 0.7);
     color: #ffffff;
     transform: translateY(-4px) scale(1.01);
-    box-shadow: 0 10px 25px rgba(0, 242, 254, 0.15), 
-                0 0 15px rgba(0, 242, 254, 0.05);
+    box-shadow: 0 10px 25px rgba(0, 242, 254, 0.25), 
+                0 0 15px rgba(0, 242, 254, 0.1);
 }
 
 .option-btn:hover .option-key {
