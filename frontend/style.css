@@ -367,13 +367,12 @@ body, html {
     width: 100%;
     max-width: 850px;
     margin: 0 auto;
-    padding: 35px 40px;
-    background: rgba(6, 11, 25, 0.75); /* Darkened glassmorphic background for ultra-high text contrast */
-    backdrop-filter: blur(16px); /* Heavy backdrop blur to separate HUD beautifully from the dynamic sea waves */
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(0, 242, 254, 0.3); /* Stronger accent border */
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 
-                0 0 35px rgba(0, 242, 254, 0.12);
+    padding: 20px 0px; /* Clean minimalist padding */
+    background: transparent !important; /* Fully transparent background */
+    backdrop-filter: none !important; /* Remove blur from main container */
+    -webkit-backdrop-filter: none !important;
+    border: none !important; /* Remove accent border */
+    box-shadow: none !important; /* Remove shadows */
     border-radius: 24px;
 }
 

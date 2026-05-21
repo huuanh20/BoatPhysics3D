@@ -593,21 +593,22 @@ function paintBoat(boatGroup, colorHex) {
             }
             
             const processMaterial = (mat) => {
-                const matName = mat.name || "";
-                const meshName = child.name || "";
+                const matName = (mat.name || "").toLowerCase();
+                const meshName = (child.name || "").toLowerCase();
                 
-                // Check if this is one of the fiberglass/hull parts
-                const isHullMat = matName.includes("acmat_8") || matName.includes("acmat_0") || matName.includes("acmat_13") || matName.includes("acmat_7");
-                const isHullMesh = meshName.includes("Object_8") || meshName.includes("Object_0") || meshName.includes("Object_13") || meshName.includes("Object_7") || meshName.includes("Object_14");
+                // Exact match fiberglass body and hull parts
+                // Hull / Deck Materials: acmat_0, acmat_7, acmat_8, acmat_13
+                // Hull / Deck Meshes: object_2, object_7, object_13, object_14
+                const isHullMat = matName === "acmat_0" || matName === "acmat_7" || matName === "acmat_8" || matName === "acmat_13";
+                const isHullMesh = meshName === "object_2" || meshName === "object_7" || meshName === "object_13" || meshName === "object_14";
                 
                 if (isHullMat || isHullMesh) {
-                    // Create a brand-new material to bypass any glTF-specific custom shader properties or vertex colors
                     return new THREE.MeshStandardMaterial({
                         color: color,
                         roughness: 0.15,
                         metalness: 0.45,
-                        name: matName ? matName + "_painted" : "hull_painted",
-                        vertexColors: false // Ensure no vertex colors interfere
+                        name: mat.name ? mat.name + "_painted" : "hull_painted",
+                        vertexColors: false // Ensure no vertex colors override
                     });
                 }
                 return null;
