@@ -12,7 +12,14 @@ body, html {
     background: #060913;
     font-family: 'Montserrat', sans-serif;
     color: #ffffff;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
     user-select: none;
+    -webkit-user-drag: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
 }
 
 /* 3D Canvas container */
@@ -51,7 +58,7 @@ body, html {
 
 /* Titles and Typography */
 .glow-text {
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Montserrat', sans-serif;
     font-weight: 900;
     letter-spacing: 2px;
     text-align: center;
@@ -153,7 +160,7 @@ body, html {
 
 /* Buttons */
 .glow-btn {
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Montserrat', sans-serif;
     font-weight: 800;
     font-size: 1rem;
     letter-spacing: 1px;
@@ -290,9 +297,10 @@ body, html {
     width: 100%;
     max-width: 900px;
     margin: 0 auto;
-    background: rgba(10, 18, 36, 0.7);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(6, 11, 25, 0.22); /* Ultra-transparent HUD header */
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border: 1px solid rgba(0, 242, 254, 0.2);
     border-radius: 16px;
     padding: 15px 25px;
     pointer-events: all;
@@ -342,7 +350,7 @@ body, html {
 
 .answered-counter {
     text-align: center;
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Montserrat', sans-serif;
     font-size: 0.8rem;
     font-weight: 800;
     letter-spacing: 1.5px;
@@ -357,84 +365,109 @@ body, html {
     pointer-events: all;
     transition: none;
     width: 100%;
-    max-width: 800px;
+    max-width: 850px;
     margin: 0 auto;
-    padding: 30px;
-    box-shadow: 0 15px 40px rgba(0,0,0,0.6);
+    padding: 30px 35px !important; /* Elegant padding so the content doesn't touch the borders */
+    background: rgba(255, 255, 255, 0.02) !important; /* Premium ultra-thin transparent frosted white glass */
+    backdrop-filter: blur(8px) !important; /* Soft thin premium blur so the 3D boat is highly visible */
+    -webkit-backdrop-filter: blur(8px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important; /* Elegant thin white-ish border */
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.1) !important; /* Deep soft shadow & inner highlight */
+    border-radius: 24px !important;
 }
 
 .question-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
+    margin-bottom: 25px;
 }
 
 .question-badge {
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Montserrat', sans-serif;
     font-weight: 900;
-    font-size: 0.8rem;
+    font-size: 0.85rem;
     color: #ffffff;
-    background: #e67e22;
-    padding: 6px 14px;
+    background: linear-gradient(135deg, #ff9f43 0%, #e67e22 100%);
+    padding: 8px 16px;
     border-radius: 8px;
-    letter-spacing: 1px;
+    letter-spacing: 1.5px;
+    box-shadow: 0 4px 15px rgba(230, 126, 34, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .question-title {
-    font-size: 1.4rem;
-    line-height: 1.6;
-    font-weight: 600;
+    font-family: "Montserrat", sans-serif;
+    font-optical-sizing: auto;
+    font-weight: 800;
+    font-style: normal;
+    font-size: 1.35rem;
+    line-height: 1.5;
     margin-bottom: 30px;
+    color: #ffffff; /* Pristine white */
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
+    letter-spacing: -0.01em;
+    text-rendering: optimizeLegibility;
 }
 
 .options-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 15px;
+    gap: 18px;
 }
 
 .option-btn {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 12px;
-    padding: 16px 20px;
-    color: #ffffff;
-    font-size: 1rem;
+    background: rgba(10, 18, 36, 0.85); /* Deep rich dark background for ultimate readability against waves */
+    border: 1px solid rgba(255, 255, 255, 0.15); /* More visible border */
+    border-radius: 16px;
+    padding: 18px 24px;
+    color: #ffffff; /* Ultra clear white text */
+    font-size: 1.1rem;
     font-family: 'Montserrat', sans-serif;
-    font-weight: 600;
+    font-weight: 600; /* Bolder font weight for superb legibility */
     text-align: left;
     display: flex;
     align-items: center;
-    gap: 15px;
+    gap: 20px;
     cursor: pointer;
-    transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+    letter-spacing: 0.1px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
 }
 
 .option-key {
     display: inline-flex;
     justify-content: center;
     align-items: center;
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.1);
-    color: #8da2c4;
-    font-family: 'Orbitron', sans-serif;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: rgba(0, 242, 254, 0.1);
+    border: 1px solid rgba(0, 242, 254, 0.2);
+    color: #00f2fe;
+    font-family: 'Montserrat', sans-serif;
     font-weight: 800;
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     transition: all 0.3s;
+    box-shadow: inset 0 0 5px rgba(0, 242, 254, 0.2);
 }
 
 .option-btn:hover {
-    background: rgba(0, 242, 254, 0.08);
-    border-color: #00f2fe;
-    transform: translateY(-2px);
+    background: rgba(15, 28, 54, 0.95); /* Deep rich cyber-blue for high contrast feedback */
+    border-color: rgba(0, 242, 254, 0.7);
+    color: #ffffff;
+    transform: translateY(-4px) scale(1.01);
+    box-shadow: 0 10px 25px rgba(0, 242, 254, 0.25), 
+                0 0 15px rgba(0, 242, 254, 0.1);
 }
 
 .option-btn:hover .option-key {
     background: #00f2fe;
+    border-color: #00f2fe;
     color: #060913;
+    box-shadow: 0 0 10px rgba(0, 242, 254, 0.5);
 }
 
 /* Feedback Overlay Screen */
@@ -470,7 +503,7 @@ body, html {
 }
 
 .feedback-main {
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Montserrat', sans-serif;
     font-size: 3rem;
     font-weight: 900;
     letter-spacing: 3px;
@@ -575,7 +608,7 @@ body, html {
 }
 
 .podium-container h3 {
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Montserrat', sans-serif;
     font-size: 0.8rem;
     font-weight: 800;
     color: #00f2fe;
@@ -618,7 +651,7 @@ body, html {
 }
 
 .winner-rank {
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Montserrat', sans-serif;
     font-weight: 900;
     color: #8da2c4;
 }
@@ -674,7 +707,7 @@ body, html {
 }
 
 .admin-title {
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Montserrat', sans-serif;
     font-weight: 900;
     font-size: 1.3rem;
     letter-spacing: 1px;
@@ -699,18 +732,36 @@ body, html {
 }
 
 .admin-floating-panel {
-    width: 480px;
-    padding: 35px;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
+    position: absolute !important;
+    top: 100px !important;
+    left: 40px !important;
+    right: auto !important;
+    bottom: auto !important;
+    transform: scale(0.95) !important;
+    transform-origin: left top !important;
+    width: 380px !important;
+    padding: 25px !important;
+    border-radius: 20px !important;
+    background: rgba(10, 20, 40, 0.45) !important;
+    backdrop-filter: blur(15px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(15px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4) !important;
+    z-index: 10 !important;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.admin-floating-panel.active {
+    opacity: 1 !important;
+    pointer-events: all !important;
+    transform: scale(1) !important;
 }
 
 .panel-subtitle {
     font-size: 0.8rem;
     color: #8da2c4;
-    text-align: center;
-    margin-bottom: 25px;
+    text-align: left;
+    margin-bottom: 20px;
 }
 
 .players-lobby-list {
@@ -731,37 +782,68 @@ body, html {
 
 .players-grid {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     gap: 10px;
-    max-height: 250px;
+    max-height: 380px;
     overflow-y: auto;
+    padding-right: 5px;
+}
+
+/* Custom scrollbar for lobby players grid */
+.players-grid::-webkit-scrollbar {
+    width: 4px;
+}
+
+.players-grid::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.players-grid::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+}
+
+.players-grid::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
 }
 
 .no-players {
     width: 100%;
     text-align: center;
     font-size: 0.85rem;
-    color: #666;
-    padding: 20px 0;
+    color: #8da2c4;
+    padding: 30px 0;
+    font-style: italic;
 }
 
 .player-lobby-badge {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
     border-radius: 8px;
-    padding: 8px 12px;
-    display: inline-flex;
+    padding: 12px 16px;
+    display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 0.85rem;
+    justify-content: flex-start;
+    gap: 12px;
+    font-size: 0.9rem;
     font-weight: 600;
+    width: 100%;
+    box-sizing: border-box;
+    transition: all 0.3s ease;
     animation: pop-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.player-lobby-badge:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.1);
+    transform: translateX(4px);
 }
 
 .player-color-dot {
     width: 12px;
     height: 12px;
     border-radius: 50%;
+    flex-shrink: 0;
 }
 
 .start-btn {
@@ -800,33 +882,160 @@ body, html {
     50% { box-shadow: 0 6px 20px rgba(46, 204, 113, 0.8); }
 }
 
-/* Live Leaderboard Overlay */
 #live-leaderboard {
-    position: absolute;
-    top: 100px;
-    right: 40px;
-    left: auto;
-    transform: none;
-    width: 320px;
-    padding: 20px;
-    opacity: 0;
-    pointer-events: none;
-    border-radius: 16px;
-    background: rgba(10, 18, 36, 0.85);
+    position: absolute !important;
+    top: 100px !important;
+    right: 40px !important;
+    left: auto !important;
+    bottom: auto !important;
+    transform: scale(0.95) !important;
+    transform-origin: right top !important;
+    width: 380px !important;
+    padding: 25px !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    border-radius: 20px !important;
+    background: rgba(10, 20, 40, 0.45) !important;
+    backdrop-filter: blur(15px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(15px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4) !important;
+    z-index: 10 !important;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
 #live-leaderboard.active {
-    opacity: 1;
-    pointer-events: all;
+    opacity: 1 !important;
+    pointer-events: all !important;
+    transform: scale(1) !important;
+}
+
+#admin-status-panel {
+    position: absolute !important;
+    top: 100px !important;
+    left: 40px !important;
+    right: auto !important;
+    bottom: auto !important;
+    transform: scale(0.95) !important;
+    transform-origin: left top !important;
+    width: 380px !important;
+    padding: 25px !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    border-radius: 20px !important;
+    background: rgba(10, 20, 40, 0.45) !important;
+    backdrop-filter: blur(15px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(15px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4) !important;
+    z-index: 10 !important;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+#admin-status-panel.active {
+    opacity: 1 !important;
+    pointer-events: all !important;
+    transform: scale(1) !important;
+}
+
+#lobby-players-panel {
+    position: absolute !important;
+    top: 100px !important;
+    right: 40px !important;
+    left: auto !important;
+    bottom: auto !important;
+    transform: scale(0.95) !important;
+    transform-origin: right top !important;
+    width: 380px !important;
+    padding: 25px !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    border-radius: 20px !important;
+    background: rgba(10, 20, 40, 0.45) !important;
+    backdrop-filter: blur(15px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(15px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4) !important;
+    z-index: 10 !important;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+#lobby-players-panel.active {
+    opacity: 1 !important;
+    pointer-events: all !important;
+    transform: scale(1) !important;
+}
+
+#live-leaderboard h2,
+#admin-status-panel h2,
+#lobby-players-panel h2,
+.admin-floating-panel h2 {
+    font-family: 'Montserrat', sans-serif !important;
+    font-weight: 800 !important;
+    font-size: 1.6rem !important;
+    color: #ffffff !important;
+    background: none !important;
+    -webkit-text-fill-color: #ffffff !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1.5px !important;
+    text-align: left !important;
+    margin-bottom: 5px !important;
+    filter: none !important;
+}
+
+#live-leaderboard .panel-subtitle,
+#admin-status-panel .panel-subtitle,
+#lobby-players-panel .panel-subtitle,
+.admin-floating-panel .panel-subtitle {
+    font-family: 'Montserrat', sans-serif !important;
+    font-weight: 700 !important;
+    font-size: 0.95rem !important;
+    color: #ffffff !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1.5px !important;
+    text-align: left !important;
+    margin-bottom: 5px !important;
+}
+
+#live-leaderboard .panel-desc,
+#admin-status-panel .panel-desc,
+#lobby-players-panel .panel-desc,
+.admin-floating-panel .panel-desc {
+    font-size: 0.75rem !important;
+    color: #8da2c4 !important;
+    text-align: left !important;
+    margin-bottom: 15px !important;
 }
 
 .leaderboard-title {
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Montserrat', sans-serif;
     font-weight: 800;
     font-size: 0.8rem;
     color: #00f2fe;
     letter-spacing: 1px;
     text-align: center;
+}
+
+.panel-desc {
+    font-size: 0.75rem;
+    color: #8da2c4;
+    text-align: left;
+    margin-bottom: 20px;
+}
+
+.text-left {
+    text-align: left !important;
+}
+
+.panel-subtitle {
+    font-size: 0.95rem;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    color: #ffffff;
+    text-align: left;
+    margin-top: 5px;
+    margin-bottom: 5px;
+    text-transform: uppercase;
 }
 
 .leaderboard-divider {
@@ -838,7 +1047,213 @@ body, html {
 #leaderboard-list {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
+    max-height: 380px; /* Highly scrollable to prevent overlapping with bottom log panel */
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+/* Custom scrollbar for leaderboard list */
+#leaderboard-list::-webkit-scrollbar {
+    width: 4px;
+}
+
+#leaderboard-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#leaderboard-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+}
+
+#leaderboard-list::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+#status-players-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 380px; /* Highly scrollable */
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+/* Custom scrollbar for status players list */
+#status-players-list::-webkit-scrollbar {
+    width: 4px;
+}
+
+#status-players-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#status-players-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+}
+
+#status-players-list::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* Gameplay Player Row Layout on the Left Sidebar */
+.gameplay-player-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-left: 3px solid transparent; /* Set dynamically in JS to match boat color */
+    border-radius: 8px; /* Sleeker corners matching screenshot */
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+}
+
+.gameplay-player-row:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.player-info-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.player-rank-num {
+    font-weight: 800;
+    color: #8da2c4;
+    min-width: 18px;
+}
+
+.player-boat-icon {
+    font-size: 1.15rem;
+    filter: drop-shadow(0 0 4px currentColor);
+}
+
+.player-name-text {
+    font-weight: 600;
+    color: #ffffff;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+    max-width: 140px;
+}
+
+/* Custom status badges */
+.status-badge {
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 5px 12px;
+    border-radius: 8px;
+    text-align: center;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    min-width: 120px;
+}
+
+.status-correct {
+    color: #2ecc71 !important;
+    background: rgba(46, 204, 113, 0.12) !important;
+    border: 1px solid rgba(46, 204, 113, 0.25) !important;
+    box-shadow: 0 0 10px rgba(46, 204, 113, 0.1);
+}
+
+.status-wrong {
+    color: #e74c3c !important;
+    background: rgba(231, 76, 60, 0.12) !important;
+    border: 1px solid rgba(231, 76, 60, 0.25) !important;
+    box-shadow: 0 0 10px rgba(231, 76, 60, 0.1);
+}
+
+.status-waiting {
+    color: #8da2c4 !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Event Log Panel (Log Sự Kiện Trận Đấu) */
+.admin-event-log-panel {
+    position: absolute !important;
+    bottom: 40px !important;
+    top: auto !important; /* Cancel top: 50% inheritance from glass-panel */
+    left: 40px !important;
+    right: auto !important;
+    transform: scale(0.95) !important;
+    transform-origin: left bottom !important;
+    width: 380px !important;
+    height: 180px !important; /* Fixed height for event logs */
+    padding: 20px !important;
+    border-radius: 20px !important;
+    background: rgba(10, 20, 40, 0.45) !important;
+    backdrop-filter: blur(15px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(15px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4) !important;
+    z-index: 10 !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+}
+
+.admin-event-log-panel.active {
+    opacity: 1 !important;
+    pointer-events: all !important;
+    transform: scale(1) !important;
+}
+
+.event-log-title {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 800;
+    font-size: 0.9rem;
+    color: #ffffff;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+}
+
+.event-log-list {
+    flex-grow: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-right: 5px;
+}
+
+.event-log-item {
+    font-size: 0.8rem;
+    color: #8da2c4;
+    line-height: 1.4;
+    animation: slide-in-log 0.3s ease-out;
+}
+
+@keyframes slide-in-log {
+    from { transform: translateY(10px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+/* Custom Scrollbar for Event Logs */
+.event-log-list::-webkit-scrollbar {
+    width: 4px;
+}
+
+.event-log-list::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 2px;
+}
+
+.event-log-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 2px;
+}
+
+.event-log-list::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
 }
 
 .leader-row {
@@ -866,7 +1281,7 @@ body, html {
 }
 
 .leader-percent {
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Montserrat', sans-serif;
     color: #00f2fe;
     font-weight: 800;
 }
@@ -974,14 +1389,14 @@ body, html {
 }
 
 .podium-rank {
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Montserrat', sans-serif;
     font-size: 3rem;
     font-weight: 900;
     margin-bottom: 10px;
 }
 
 .podium-metal {
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Montserrat', sans-serif;
     font-size: 0.8rem;
     font-weight: 800;
     letter-spacing: 1.5px;
@@ -1131,4 +1546,198 @@ body, html {
 .reset-system-btn:hover {
     box-shadow: 0 6px 16px rgba(231, 76, 60, 0.6) !important;
     filter: brightness(1.1) !important;
+}
+
+/* ==========================================================================
+   Streak & Item Inventory Premium System
+   ========================================================================= */
+.streak-badge-container {
+    position: absolute;
+    top: 100px;
+    right: 35px;
+    background: linear-gradient(135deg, rgba(231, 76, 60, 0.25) 0%, rgba(241, 196, 15, 0.25) 100%);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(241, 196, 15, 0.4);
+    border-radius: 50px;
+    padding: 10px 24px;
+    z-index: 10;
+    box-shadow: 0 4px 20px rgba(241, 196, 15, 0.2);
+    animation: pulseStreak 1.8s infinite alternate;
+}
+
+@keyframes pulseStreak {
+    0% {
+        transform: scale(1);
+        box-shadow: 0 4px 20px rgba(241, 196, 15, 0.2);
+    }
+    100% {
+        transform: scale(1.05);
+        box-shadow: 0 4px 30px rgba(231, 76, 60, 0.4);
+    }
+}
+
+.streak-text {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1rem;
+    font-weight: 900;
+    color: #ffffff;
+    letter-spacing: 1px;
+    text-shadow: 0 0 10px rgba(241, 196, 15, 0.8);
+}
+
+.shield-active-badge {
+    position: absolute;
+    top: 100px;
+    left: 35px;
+    background: rgba(46, 204, 113, 0.2);
+    border: 1px solid rgba(46, 204, 113, 0.5);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-radius: 50px;
+    padding: 10px 24px;
+    z-index: 10;
+    box-shadow: 0 4px 20px rgba(46, 204, 113, 0.2);
+    color: #2ecc71;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 800;
+    letter-spacing: 1px;
+    display: none; /* Hidden by default */
+}
+
+.shield-active-badge.active {
+    display: block;
+    animation: pulseShield 1.5s infinite alternate;
+}
+
+@keyframes pulseShield {
+    0% { transform: scale(1); box-shadow: 0 4px 15px rgba(46, 204, 113, 0.2); }
+    100% { transform: scale(1.03); box-shadow: 0 4px 25px rgba(46, 204, 113, 0.4); }
+}
+
+.inventory-panel {
+    margin-top: 30px;
+    padding: 20px 25px !important;
+    background: rgba(10, 18, 36, 0.4) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 20px !important;
+    width: 100%;
+    max-width: 850px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.inventory-title {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 800;
+    font-size: 0.8rem;
+    color: #8da2c4;
+    letter-spacing: 1.5px;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+.items-row {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+}
+
+.item-btn {
+    background: rgba(6, 9, 19, 0.7);
+    border: 1px solid rgba(0, 242, 254, 0.3);
+    border-radius: 14px;
+    padding: 12px 25px;
+    color: #ffffff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 700;
+    font-size: 0.9rem;
+    position: relative;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.item-btn:hover:not(.locked):not([disabled]) {
+    transform: translateY(-3px);
+    border-color: #00f2fe;
+    box-shadow: 0 8px 20px rgba(0, 242, 254, 0.3), 0 0 10px rgba(0, 242, 254, 0.2);
+}
+
+.item-btn.locked {
+    opacity: 0.3;
+    cursor: not-allowed;
+    border-color: rgba(255, 255, 255, 0.1);
+    filter: grayscale(1);
+}
+
+.item-btn.locked::after {
+    content: "🔒 Lock";
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #e74c3c;
+    color: #ffffff;
+    font-size: 0.65rem;
+    padding: 2px 6px;
+    border-radius: 6px;
+    font-weight: 900;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+}
+
+.item-icon {
+    font-size: 1.2rem;
+}
+
+.item-badge {
+    background: #00f2fe;
+    color: #060913;
+    border-radius: 8px;
+    padding: 2px 7px;
+    font-size: 0.75rem;
+    font-weight: 900;
+    min-width: 18px;
+    text-align: center;
+    box-shadow: 0 0 8px rgba(0, 242, 254, 0.6);
+}
+
+.item-btn.locked .item-badge {
+    background: #555555;
+    color: #ffffff;
+    box-shadow: none;
+}
+
+/* Floating status text */
+.floating-status-text {
+    position: fixed;
+    top: 25%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(10, 18, 36, 0.95);
+    border: 1px solid #00f2fe;
+    color: #ffffff;
+    padding: 15px 30px;
+    border-radius: 50px;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 900;
+    font-size: 1.1rem;
+    letter-spacing: 1px;
+    z-index: 2000;
+    pointer-events: none;
+    box-shadow: 0 10px 40px rgba(0, 242, 254, 0.4), 0 0 20px rgba(0, 242, 254, 0.2);
+    animation: bounceInUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), fadeOutStatus 1s 1.8s forwards;
+}
+
+@keyframes bounceInUp {
+    0% { transform: translate(-50%, 50%) scale(0.7); opacity: 0; }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+@keyframes fadeOutStatus {
+    to { opacity: 0; transform: translate(-50%, -80%) scale(0.9); }
 }

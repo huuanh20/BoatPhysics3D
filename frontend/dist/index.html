@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thuyền Đua Việt - Pháp | Đua Thuyền Quiz 3D</title>
+    <!-- Google Fonts for Premium Gaming Aesthetics -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Montserrat:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- Ably Realtime -->
+    <script src="https://cdn.ably.com/lib/ably.min-2.js"></script>
+    
+    <!-- Import Canvas Confetti for Victory Screen -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <!-- Import Map to resolve Three.js ES Modules natively in browser -->
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.163.0/build/three.module.js",
+          "three/examples/jsm/": "https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/"
+        }
+      }
+    </script>
+  <script type="module" crossorigin src="/assets/index-BfuDwaPc.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-B9eD3Smq.css">
+</head>
+<body>
+    <!-- 3D Canvas Container -->
+    <div id="canvas-container"></div>
+    
+    <!-- Lobby UI (Overlay) -->
+    <div id="lobby-screen" class="glass-panel active">
+        <h1 class="glow-text title-animation">VIỆT NAM <span class="accent-text">➜</span> PHÁP</h1>
+        <p class="subtitle">Cuộc Đua Tri Thức - Vượt Đại Dương 3D</p>
+        
+        <div class="form-container">
+            <div class="input-group">
+                <label for="player-name">TÊN THUYỀN TRƯỞNG</label>
+                <input type="text" id="player-name" placeholder="Nhập tên của bạn..." autocomplete="off" maxlength="15">
+            </div>
+            
+            <div class="color-picker-group">
+                <label>MÀU SẮC THUYỀN ĐUA</label>
+                <div class="color-options">
+                    <button class="color-btn active" style="background: #e74c3c;" data-color="#e74c3c" title="Đỏ"></button>
+                    <button class="color-btn" style="background: #9b59b6;" data-color="#9b59b6" title="Tím"></button>
+                    <button class="color-btn" style="background: #f1c40f;" data-color="#f1c40f" title="Vàng"></button>
+                    <button class="color-btn" style="background: #8b4513;" data-color="#8b4513" title="Nâu"></button>
+                    <button class="color-btn" style="background: #3498db;" data-color="#3498db" title="Xanh dương"></button>
+                    <button class="color-btn" style="background: #2ecc71;" data-color="#2ecc71" title="Xanh lá"></button>
+                    <button class="color-btn" style="background: #e67e22;" data-color="#e67e22" title="Cam"></button>
+                </div>
+            </div>
+            
+            <button id="join-btn" class="glow-btn">BẮT ĐẦU RA KHƠI</button>
+        </div>
+    </div>
+    
+    <!-- Waiting Lobby UI -->
+    <div id="waiting-screen" class="glass-panel">
+        <div class="radar-container">
+            <div class="radar"></div>
+            <div class="radar-ping"></div>
+        </div>
+        <h2 class="glow-text">ĐÃ SẴN SÀNG RA KHƠI!</h2>
+        <p id="player-welcome-msg">Chào Thuyền Trưởng, thuyền của bạn đã vào vị trí xuất phát.</p>
+        <div class="status-box">
+            <span class="pulse-dot"></span> Đang chờ Ban Tổ Chức (Admin) phát lệnh xuất phát...
+        </div>
+    </div>
+    
+    <!-- Quiz Interface (Game Screen) -->
+    <div id="quiz-screen" class="game-overlay">
+        <!-- Progress Header -->
+        <div class="race-progress-container">
+            <div class="progress-labels">
+                <span class="flag-icon">🇻🇳 VIỆT NAM</span>
+                <div class="progress-bar-wrapper">
+                    <div id="player-progress-bar" class="progress-bar-fill" style="width: 0%"></div>
+                    <!-- Miniature boat indicator -->
+                    <div id="player-progress-boat" class="progress-boat-icon" style="left: 0%">⛵</div>
+                </div>
+                <span class="flag-icon">🇫🇷 PHÁP</span>
+            </div>
+            <div class="answered-counter">ĐÃ HOÀN THÀNH: <span id="correct-count">0</span>/15 CÂU</div>
+        </div>
+        
+        <!-- Quiz Main Card -->
+        <div class="quiz-card glass-panel">
+            <div class="question-header">
+                <span class="question-badge" id="question-number-badge">CÂU HỎI 1</span>
+                <span class="question-timer-bar"></span>
+            </div>
+            
+            <h2 id="question-text" class="question-title">Đang tải câu hỏi...</h2>
+            
+            <div class="options-grid">
+                <button class="option-btn" data-index="0">
+                    <span class="option-key">A</span>
+                    <span class="option-content" id="opt-0">...</span>
+                </button>
+                <button class="option-btn" data-index="1">
+                    <span class="option-key">B</span>
+                    <span class="option-content" id="opt-1">...</span>
+                </button>
+                <button class="option-btn" data-index="2">
+                    <span class="option-key">C</span>
+                    <span class="option-content" id="opt-2">...</span>
+                </button>
+                <button class="option-btn" data-index="3">
+                    <span class="option-key">D</span>
+                    <span class="option-content" id="opt-3">...</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Inventory panel for items -->
+        <div class="inventory-panel glass-panel">
+            <div class="inventory-title">⚙️ VẬT PHẨM HỖ TRỢ (ĐẠT CHUỖI ĐỂ NHẬN THÊM)</div>
+            <div class="items-row">
+                <button id="item-radar" class="item-btn" onclick="useSmartRadar();" title="Loại bỏ 2 đáp án sai">
+                    <span class="item-icon">💡</span>
+                    <span class="item-label">Radar 50-50</span>
+                    <span id="count-radar" class="item-badge">1</span>
+                </button>
+                <button id="item-boost" class="item-btn locked" onclick="useTurboBoost();" title="Đạt chuỗi x3 để mở khóa - Tiến nhanh +1 câu">
+                    <span class="item-icon">🚀</span>
+                    <span class="item-label">Phản Lực</span>
+                    <span id="count-boost" class="item-badge">0</span>
+                </button>
+                <button id="item-shield" class="item-btn locked" onclick="useShield();" title="Đạt chuỗi x5 để mở khóa - Chặn 1 câu sai">
+                    <span class="item-icon">🛡️</span>
+                    <span class="item-label">Lá Chắn</span>
+                    <span id="count-shield" class="item-badge">0</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Streak displays -->
+        <div id="streak-container" class="streak-badge-container">
+            <span class="streak-text">CHUỖI: <span id="streak-count">0</span> 🔥</span>
+        </div>
+        
+        <div id="shield-indicator" class="shield-active-badge">
+            <span>🛡️ LÁ CHẮN ĐANG HOẠT ĐỘNG</span>
+        </div>
+    </div>
+    
+    <!-- Answer Feedback Overlay -->
+    <div id="feedback-overlay" class="feedback-screen">
+        <div class="feedback-content">
+            <h1 id="feedback-title" class="feedback-main">CHÍNH XÁC!</h1>
+            <p id="feedback-desc" class="feedback-sub">Thuyền của bạn đang tăng tốc vượt sóng...</p>
+        </div>
+    </div>
+    
+    <!-- Paused Game Overlay -->
+    <div id="paused-overlay" class="feedback-screen" style="background: rgba(6, 9, 19, 0.92); backdrop-filter: blur(15px);">
+        <div class="feedback-content">
+            <h1 class="feedback-main" style="color: #f39c12; text-shadow: 0 0 30px rgba(243, 156, 18, 0.6); font-family: 'Montserrat', sans-serif; font-size: 3rem; font-weight: 900; letter-spacing: 3px; margin-bottom: 10px;">TRÒ CHƠI TẠM DỪNG</h1>
+            <p class="feedback-sub" style="font-size: 1.1rem; color: #8da2c4;">Ban Tổ Chức (Admin) đã tạm dừng cuộc đua.</p>
+            <p class="feedback-sub" style="font-size: 0.95rem; color: #576c8c; margin-top: 5px;">Vui lòng chờ đợi trong giây lát...</p>
+            
+            <div class="radar-container" style="margin-top: 40px; transform: scale(0.8);">
+                <div class="radar" style="border-color: rgba(243, 156, 18, 0.3);"></div>
+                <div class="radar-ping" style="background: #f39c12; box-shadow: 0 0 15px #f39c12;"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Game Over Screen (Victory / Explosion) -->
+    <div id="game-over-screen" class="glass-panel">
+        <div class="game-over-content">
+            <!-- Victory View -->
+            <div id="victory-view" class="sub-view">
+                <div class="trophy-wrapper">
+                    <div class="glow-circle"></div>
+                    <span class="trophy-emoji">🏆</span>
+                </div>
+                <h1 class="glow-text victory-title">CHIẾN THẮNG VẺ VANG!</h1>
+                <p class="victory-desc">Chúc mừng bạn đã cập cảng nước Pháp thành công ở Vị trí thứ <span id="victory-rank" class="rank-highlight">1</span>!</p>
+            </div>
+            
+            <!-- Explosion View -->
+            <div id="explosion-view" class="sub-view">
+                <div class="explosion-wrapper">
+                    <div class="fire-flame">💥</div>
+                </div>
+                <h1 class="glow-text explode-title">THUYỀN ĐÃ BỊ NỔ TUNG!</h1>
+                <p class="explode-desc">Cuộc đua đã kết thúc! Top 3 thuyền nhanh nhất đã về đích, các thuyền còn lại đã bị đánh chìm.</p>
+            </div>
+            
+            <!-- Leaderboard in GameOver -->
+            <div class="podium-container">
+                <h3>BẢNG VÀNG DANH DỰ</h3>
+                <div id="winners-podium">
+                    <!-- Dynamic podium list -->
+                </div>
+            </div>
+            
+            <button onclick="window.location.reload();" class="glow-btn reset-btn">CHƠI LẠI</button>
+        </div>
+    </div>
+    
+    <!-- SFX are synthesized via Web Audio API in client.js (no external URLs needed) -->
+    
+    <!-- Import Main Logic -->
+</body>
+</html>
