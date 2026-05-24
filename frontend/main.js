@@ -70,17 +70,19 @@ class Boat {
     return Math.min(maxTiltAngle, tilt);
   }
 
-  applyCentrifugalForce() {
+  applyCentrifugalForce(deltaTime) {
     if (this.speed.angularVelocity > 0 && this.speed.turnRadius > 0) {
+      const fpsRatio = deltaTime * 60;
       const radius = this.speed.turnRadius;
       const angularVelocity = this.speed.angularVelocity;
       const centrifugalForce = boatForces.mass * angularVelocity * angularVelocity * radius;
   
-      const adjustment = centrifugalForce * 0.001;
+      const adjustment = centrifugalForce * 0.001 * fpsRatio;
       this.boat.position.x += adjustment;
 
-      const tilt = this.calculateTilt();
-      this.boat.rotation.z = tilt * Math.sign(this.speed.rot);
+      // Tính góc nghiêng ly tâm và cộng dồn vào trục Z để không bị đè bởi hiệu ứng sóng
+      const centrifugalTilt = this.calculateTilt() * Math.sign(this.speed.rot);
+      this.boat.rotation.z += centrifugalTilt;
     }
   }
   
@@ -88,9 +90,11 @@ class Boat {
     this.isStopping = true;
   }
 
-  update() {
+  update(deltaTime) {
     if (this.boat) {
         if (!this.isSinking) {
+          const fpsRatio = deltaTime * 60;
+
           const thrustAcceleration = keyStates["KeyW"] ? boatForces.thrustForce / boatForces.mass : 0;
           const dragForce = 0.5 * boatForces.dragCoefficient * this.speed.vel * this.speed.vel;
           const dragAcceleration = -Math.sign(this.speed.vel) * dragForce / boatForces.mass;
@@ -98,35 +102,45 @@ class Boat {
 
           const totalAcceleration = thrustAcceleration + dragAcceleration + waterReactionAcceleration;
 
-          this.speed.vel += totalAcceleration;
+          this.speed.vel += totalAcceleration * fpsRatio;
 
           if (this.isStopping) {
-              this.speed.vel *= boatForces.decelerationRate;
+              this.speed.vel *= Math.pow(boatForces.decelerationRate, fpsRatio);
               if (Math.abs(this.speed.vel) < 0.01) {
                   this.speed.vel = 0;
                   this.isStopping = false;
               }
           }
 
+          // Cập nhật hiệu ứng sóng trước để lấy vị trí Y và góc nghiêng nền
           this.applyWaveEffect();
-          wind.applyWindEffect(this);
-          this.applyCentrifugalForce();
+          
+          wind.applyWindEffect(this, deltaTime);
+          this.applyCentrifugalForce(deltaTime);
 
           if (boatForces.mass > boatForces.sinkingThreshold) {
-            this.applyBuoyancyEffect();
+            this.applyBuoyancyEffect(deltaTime);
           } else {
-              this.boat.rotation.y += this.speed.rot;
-              this.boat.translateX(this.speed.vel);
+              this.boat.rotation.y += this.speed.rot * fpsRatio;
+              this.boat.translateX(this.speed.vel * fpsRatio);
           }
         } else {
-          this.sink();
+          this.sink(deltaTime);
         }
     }
   }
 
   applyWaveEffect() {
-    const waveEffect = Math.sin(performance.now() * 0.001 * boatForces.waveFrequency) * boatForces.waveAmplitude;
+    const time = performance.now() * 0.001;
+    const waveEffect = Math.sin(time * boatForces.waveFrequency) * boatForces.waveAmplitude;
     this.boat.position.y = 13 + waveEffect;
+    
+    // NÂNG CẤP: Tạo chuyển động nghiêng lắc lư gập ghềnh (Pitch & Roll) mô phỏng sóng biển Three.js siêu chân thực
+    const roll = Math.sin(time * 1.5 * boatForces.waveFrequency) * 0.04 * boatForces.waveAmplitude + (this.speed.rot * 0.4);
+    const pitch = Math.cos(time * 1.2 * boatForces.waveFrequency) * 0.03 * boatForces.waveAmplitude + (this.speed.vel * 0.015);
+    
+    this.boat.rotation.z = roll;
+    this.boat.rotation.x = pitch;
   }
 
   getBuoyancyForce() {
@@ -135,30 +149,28 @@ class Boat {
     const boatWidth = this.boat.scale.x;
 
     const submergedHeight = Math.max(0, boatHeight - this.boat.position.y);
-
     const volumeDisplaced = submergedHeight * boatLength * boatWidth;
-
     const waterDensity = 1000;
-
     const buoyancyForce = waterDensity * volumeDisplaced * 9.81;
 
     return buoyancyForce;
   }
 
-  applyBuoyancyEffect() {
+  applyBuoyancyEffect(deltaTime) {
+    const fpsRatio = deltaTime * 60;
     const gravityForce = 9.81 * boatForces.mass; 
     const buoyancyForce = this.getBuoyancyForce(); 
     const netForce = buoyancyForce - gravityForce;
-
     const waterResistance = this.speed.vel * this.speed.vel * 0.05;
 
     if (netForce < 0) {
         this.isSinking = true;
     } else {
         const netAcceleration = (netForce - waterResistance) / boatForces.mass;
-        this.speed.vel += netAcceleration;
-        this.boat.position.y += this.speed.vel * 0.01;
+        this.speed.vel += netAcceleration * fpsRatio;
+        this.boat.position.y += this.speed.vel * 0.01 * fpsRatio;
         
+        const boatHeight = this.boat.scale.y;
         if (this.boat.position.y < -boatHeight / 2) {
             this.boat.position.y = -boatHeight / 2;
             this.speed.vel = 0;
@@ -166,9 +178,10 @@ class Boat {
     }
   }
 
-  sink() {
-    this.sinkingTimer += 0.001; 
-    this.boat.position.y -= this.sinkingTimer; 
+  sink(deltaTime) {
+    const fpsRatio = deltaTime * 60;
+    this.sinkingTimer += 0.001 * fpsRatio; 
+    this.boat.position.y -= this.sinkingTimer * fpsRatio; 
     if (!this.sinkingSound.isPlaying) {
       this.sinkingSound.play();
       this.sinkingSound.isPlaying = true;
@@ -192,30 +205,34 @@ class Wind {
   }
 
   updateWind(newDirection, newSpeed) {
-    this.direction = newDirection.normalize();
+    this.direction.copy(newDirection).normalize(); // Tránh tạo new Vector3 liên tục
     this.speed = newSpeed;
   }
 
-  applyWindEffect(boat) {
+  applyWindEffect(boat, deltaTime) {
     if (boat.boat) {
-        const windDirection = this.direction.clone().normalize();
-        
-        const windImpact = windDirection.multiplyScalar(this.speed * boatForces.windForce);
-        
-        boat.boat.position.add(windImpact);
+      const fpsRatio = deltaTime * 60;
+      const windDirection = this.direction.clone().normalize();
+      const windImpact = windDirection.multiplyScalar(this.speed * boatForces.windForce * fpsRatio);
+      
+      boat.boat.position.add(windImpact);
 
       const sideImpact = windDirection.dot(new THREE.Vector3(1, 0, 0));
-      boat.speed.rot += sideImpact * 0.0001;
+      boat.speed.rot += sideImpact * 0.0001 * fpsRatio;
       boat.speed.rot = Math.max(Math.min(boat.speed.rot, 0.02), -0.02);
+    }
   }
 }
 
-}
 const wind = new Wind();
 
+// Tái sử dụng Vector3 tĩnh tránh rò rỉ bộ nhớ (Garbage Collector pressure) mỗi khung hình
+const staticWindVector = new THREE.Vector3();
+
 async function init() {
-    renderer = new THREE.WebGLRenderer();
-    renderer.setPixelRatio(window.devicePixelRatio);
+    // Tối ưu hóa WebGLRenderer bật Antialias và ưu tiên GPU rời (high-performance)
+    renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Giới hạn PixelRatio ở mức 2 để bảo vệ hiệu năng di động
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     document.body.appendChild(renderer.domElement);
@@ -259,12 +276,6 @@ async function init() {
         azimuth: 180,
     };
 
-    const sunGeometry = new THREE.SphereGeometry(10, 32, 32);
-    const sunMaterial = new THREE.MeshBasicMaterial({ color: 0xFFFF32 });
-    const sunMesh = new THREE.Mesh(sunGeometry, sunMaterial);
-    sunMesh.position.set(0, 1000, -20000);
-    sunMesh.scale.set(100, 100, 100);
-
     const pmremGenerator = new THREE.PMREMGenerator(renderer);
 
     function updateSun() {
@@ -301,7 +312,7 @@ async function init() {
     gui.add(boatForces, 'waveFrequency', 0, 5, 0.1).name('Wave Frequency').onChange(updateWater);
     gui.add(boatForces, 'windForce', 0, 0.5, 0.01).name('Wind Force');
     const windGui = gui.addFolder('Wind Settings');
-   windGui.open();
+    windGui.open();
 }
 
 function updateWater() {
@@ -322,25 +333,27 @@ window.addEventListener("keydown", (event) => {
     keyStates[event.code] = true;
 });
 
-function myControls() {
+function myControls(deltaTime) {
+    const fpsRatio = deltaTime * 60;
+
     if (keyStates["KeyW"]) {
         boat.isStopping = false;
-        boat.speed.vel += boatForces.thrustForce / boatForces.mass;
+        boat.speed.vel += (boatForces.thrustForce / boatForces.mass) * fpsRatio;
     }
 
     if (keyStates["KeyS"]) {
         boat.isStopping = false;
-        boat.speed.vel = -1;
+        boat.speed.vel = -1 * fpsRatio;
     }
 
     if (keyStates["KeyA"]) {
-        boat.speed.rot = 0.05;
+        boat.speed.rot = 0.05 * fpsRatio;
         boat.speed.angularVelocity = 0.1;
         boat.speed.turnRadius = 1;
     }
 
     if (keyStates["KeyD"]) {
-        boat.speed.rot = -0.05;
+        boat.speed.rot = -0.05 * fpsRatio;
         boat.speed.angularVelocity = 0.1;
         boat.speed.turnRadius = 1;
     }
@@ -380,19 +393,17 @@ let oldElapsedTime = 0;
 
 async function animate() {
     const elapsedTime = clock.getElapsedTime();
-    const deltaTime = elapsedTime - oldElapsedTime;
+    const deltaTime = Math.min(elapsedTime - oldElapsedTime, 0.1); // Giới hạn deltaTime tối đa 0.1s để tránh giật lag đột ngột phá vỡ vật lý
     oldElapsedTime = elapsedTime;
 
-    wind.updateWind(
-        new THREE.Vector3(
-            wind.direction.x,
-            wind.direction.y,
-            wind.direction.z
-        ),
-        wind.speed
-    );
-    boat.update();
-    myControls();
+    // Tối ưu hóa: Sao chép giá trị vào Vector3 tĩnh thay vì khởi tạo new liên tục mỗi frame
+    staticWindVector.set(wind.direction.x, wind.direction.y, wind.direction.z);
+    wind.updateWind(staticWindVector, wind.speed);
+
+    // Truyền deltaTime vào các hàm cập nhật vật lý
+    boat.update(deltaTime);
+    myControls(deltaTime);
+    
     updateCamera();
     updateCamera2();
     render();

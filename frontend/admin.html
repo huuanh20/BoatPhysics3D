@@ -7,7 +7,7 @@
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Montserrat:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/style.css?v=130">
     
     <!-- Ably Realtime -->
@@ -34,12 +34,13 @@
     <div class="admin-top-bar">
         <div class="admin-title-group">
             <span class="pulse-red-dot"></span>
-            <h1 class="admin-title">TRUNG TÂM GIÁM SÁT ĐUA THUYỀN 3D</h1>
+            <h1 class="admin-title">TRUNG TÂM GIÁM SÁT HÀNH TRÌNH CHÂN LÝ</h1>
         </div>
         <div class="admin-actions-group" style="display: flex; align-items: center; gap: 20px;">
             <div class="route-label">
-                HÀNH TRÌNH: <span class="flag-text">🇻🇳 VIỆT NAM</span> ➜ <span class="flag-text">🇫🇷 PHÁP</span>
+                HÀNH TRÌNH: <span class="flag-text">🌫️ SƯƠNG MÙ HIỂU LẦM</span> ➜ <span class="flag-text">☀️ ĐẠI LỘ CHÂN LÝ</span>
             </div>
+            <button id="open-hof-btn" class="glow-btn" style="background: linear-gradient(135deg, #f1c40f 0%, #f39c12 100%); margin-right: 10px; border: 1px solid rgba(241, 196, 15, 0.5); box-shadow: 0 0 15px rgba(241, 196, 15, 0.3);">🏆 BẢNG VÀNG LỊCH SỬ</button>
             <button id="pause-game-btn" class="glow-btn pause-system-btn" style="display: none; margin-right: 10px;">TẠM DỪNG</button>
             <button id="reset-game-btn" class="glow-btn reset-system-btn">RESET TRÒ CHƠI</button>
         </div>
@@ -52,6 +53,10 @@
         <p class="panel-desc">Hệ thống điều khiển thuyền buồm 3D thời gian thực. Bấm nút bên dưới để phát lệnh xuất phát cho tất cả thuyền buồm.</p>
         <div class="leaderboard-divider"></div>
         <button id="start-game-btn" class="glow-btn start-btn" disabled>BẮT ĐẦU CHƠI</button>
+        <div class="admin-stress-test-group" style="margin-top: 15px; display: flex; flex-direction: column; gap: 8px; width: 100%;">
+            <button id="stress-test-btn" class="glow-btn" style="background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); border: 1px solid rgba(231, 76, 60, 0.5); width: 100%;">🧪 BẬT 50 BOTS (STRESS TEST)</button>
+            <button id="stop-stress-test-btn" class="glow-btn" style="background: linear-gradient(135deg, #7f8c8d 0%, #95a5a6 100%); border: 1px solid rgba(127, 140, 141, 0.5); display: none; width: 100%;">⏹️ TẮT BOTS GIẢ LẬP</button>
+        </div>
     </div>
     
     <!-- Connected Players Panel (Docked Right during Lobby) -->
@@ -85,6 +90,20 @@
         <div class="leaderboard-divider"></div>
         <div id="leaderboard-list">
             <!-- Real-time player progress bars -->
+        </div>
+    </div>
+    
+    <!-- Current Question Panel (Docked Bottom Right) -->
+    <div id="admin-question-panel" class="glass-panel">
+        <div class="question-header" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+            <span class="question-badge" id="admin-question-badge" style="background: rgba(255, 59, 48, 0.2); border: 1px solid rgba(255, 59, 48, 0.4); padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 800; color: #ff3b30; text-transform: uppercase; letter-spacing: 0.05em;">CÂU HỎI HIỆN TẠI</span>
+            <span class="question-player-label" id="admin-question-player" style="font-size: 0.75rem; font-weight: 800; color: #00f2fe; text-transform: uppercase;">...</span>
+        </div>
+        <div class="leaderboard-divider" style="margin-top: 10px; margin-bottom: 15px;"></div>
+        <h3 id="admin-question-text" class="question-title" style="font-size: 1.1rem; margin-bottom: 18px; line-height: 1.4; color: #ffffff; font-weight: 700;">Đang đợi thuyền trưởng mở câu hỏi...</h3>
+        <div class="leaderboard-divider" style="margin-bottom: 15px;"></div>
+        <div id="admin-options-container" style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
+            <!-- Dynamic options will go here -->
         </div>
     </div>
     
@@ -142,6 +161,33 @@
         </div>
         
         <button onclick="window.location.reload();" class="glow-btn restart-btn">KHỞI ĐỘNG GIẢI MỚI</button>
+    </div>
+    
+    <!-- Hall of Fame Modal Overlay -->
+    <div id="hall-of-fame-modal" class="modal-overlay">
+        <div class="modal-content glass-panel">
+            <button id="close-hof-btn" class="close-modal-btn">&times;</button>
+            <h2 class="glow-text text-center">🏆 BẢNG VÀNG LỊCH SỬ</h2>
+            <h3 class="panel-subtitle text-center">KỶ LỤC CÁC CUỘC ĐUA MỌI THỜI ĐẠI</h3>
+            <div class="leaderboard-divider"></div>
+            <div class="modal-table-container">
+                <table class="hall-of-fame-table">
+                    <thead>
+                        <tr>
+                            <th>Hạng</th>
+                            <th>Thuyền Trưởng</th>
+                            <th>Câu Đúng</th>
+                            <th>Thời Gian</th>
+                            <th>Ngày Đua</th>
+                        </tr>
+                    </thead>
+                    <tbody id="hall-of-fame-list">
+                        <!-- Loaded dynamically via API -->
+                        <tr><td colspan="5" class="text-center">Đang tải dữ liệu xếp hạng...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
     
     <!-- SFX are now synthesized via Web Audio API in admin.js (no external URLs needed) -->

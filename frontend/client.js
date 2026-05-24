@@ -26,6 +26,32 @@ let currentStreak = 0;
 let inventory = { radar: 1, boost: 0, shield: 0 };
 let isShieldActive = false;
 
+// --- GATE & EXPLANATION CONFIGURATION ---
+const gateZPositions = [140, -20, -180, -340, -500];
+const gateTitles = [
+    "CỔNG 1: HIỂU LẦM SỞ HỮU CÁ NHÂN",
+    "CỔNG 2: HIỂU LẦM MÔ HÌNH CÀO BẰNG",
+    "CỔNG 3: HIỂU LẦM TRIỆT TIÊU DÂN CHỦ",
+    "CỔNG 4: HIỂU LẦM KHÔNG TƯỞNG & THẤT BẠI",
+    "CỔNG 5: HIỂU LẦM ĐỐI LẬP TUYỆT ĐỐI"
+];
+const gateSubtitles = [
+    "Sự thật: CNXH bảo vệ sở hữu cá nhân và tôn trọng thành quả lao động!",
+    "Sự thật: Phân phối theo lao động - làm nhiều hưởng nhiều, làm ít hưởng ít!",
+    "Sự thật: Nền dân chủ XHCN thuộc về tuyệt đại đa số nhân dân lao động!",
+    "Sự thật: Sự sụp đổ của một mô hình giáo điều không phải là thất bại của lý tưởng!",
+    "Sự thật: Kế thừa và phát triển tinh hoa văn minh nhân loại của CNTB!"
+];
+let activeGates = [];
+let passedGates = [false, false, false, false, false];
+let pendingNextQuestionData = null;
+
+// Dynamically create Gate Flash Overlay on startup
+const flashDiv = document.createElement("div");
+flashDiv.id = "gate-flash-overlay";
+flashDiv.className = "gate-flash-overlay";
+document.body.appendChild(flashDiv);
+
 // UI Elements
 const lobbyScreen = document.getElementById("lobby-screen");
 const waitingScreen = document.getElementById("waiting-screen");
@@ -52,6 +78,26 @@ const sfxExplosion = null; // synthesized in playSynthesizedSound('explosion')
 const sfxHorn = null;    // synthesized in playSynthesizedSound('horn')
 const bgmLobby = null;
 const bgmGameplay = null;
+
+let sfxAnthem = null;
+function playNationalAnthem() {
+    if (bgmLobby) bgmLobby.pause();
+    if (bgmGameplay) bgmGameplay.pause();
+
+    if (!sfxAnthem) {
+        sfxAnthem = new Audio('/vietnam_anthem.mp3');
+        sfxAnthem.volume = 0.7;
+    }
+    sfxAnthem.currentTime = 0;
+    sfxAnthem.play().catch(e => console.warn("Client anthem audio deferred:", e));
+}
+
+function stopNationalAnthem() {
+    if (sfxAnthem) {
+        sfxAnthem.pause();
+        sfxAnthem.currentTime = 0;
+    }
+}
 
 // --- WEB AUDIO API REAL-TIME LOW-LATENCY SYNTHESIZER ---
 let audioCtx = null;
@@ -174,6 +220,31 @@ function playSynthesizedSound(type) {
             
             noise.start(now);
             noise.stop(now + 1.5);
+        } else if (type === 'gate_chord') {
+            // Detuned rich major chord: C4, E4, G4, C5 using sawtooth waves and sweeps
+            const tones = [261.63, 329.63, 392.00, 523.25];
+            const gain = ctx.createGain();
+            gain.gain.setValueAtTime(0, now);
+            gain.gain.linearRampToValueAtTime(0.3, now + 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+            
+            const filter = ctx.createBiquadFilter();
+            filter.type = "lowpass";
+            filter.frequency.setValueAtTime(800, now);
+            filter.frequency.exponentialRampToValueAtTime(3000, now + 0.3);
+            filter.frequency.exponentialRampToValueAtTime(100, now + 1.2);
+            
+            tones.forEach((freq) => {
+                const osc = ctx.createOscillator();
+                osc.type = "sawtooth";
+                osc.frequency.setValueAtTime(freq + (Math.random() - 0.5) * 3, now);
+                osc.connect(filter);
+                osc.start(now);
+                osc.stop(now + 1.3);
+            });
+            
+            filter.connect(gain);
+            gain.connect(ctx.destination);
         }
     } catch (e) {
         console.warn("Real-time audio synthesizer failed:", e);
@@ -215,13 +286,15 @@ const TOTAL_DIST = START_Z - FINISH_Z; // 800 units
 // Competitors & Lanes Data
 let activePlayers = {}; // Maps sid -> competitor boat data
 let laneMap = {}; // Stable lane maps
-let usedLanes = new Array(30).fill(false);
+let usedLanes = new Array(100).fill(false);
 let accelerationEffect = 0.0; // Dynamic G-force camera stretch
 
 // 3D Scene Setup
 let camera, scene, renderer;
 let water, sky, sun;
 let boatMesh = null;
+let boatTemplate = null;
+let isRefreshingPresence = false;
 let loader = new GLTFLoader();
 
 // Scenery Global Variables
@@ -334,12 +407,12 @@ function init3D() {
     
     // Renderer
     renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // Capped at 1.5 for high performance on Retina/High-DPI
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.8;
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap; // Switched to PCFShadowMap from PCFSoftShadowMap for better GPU performance
     container.appendChild(renderer.domElement);
 
     // Scene
@@ -358,8 +431,8 @@ function init3D() {
     const dirLight = new THREE.DirectionalLight(0xffb07c, 1.8); // Brighter, warm sunset orange-gold light
     dirLight.position.set(250, 350, -200);
     dirLight.castShadow = true;
-    dirLight.shadow.mapSize.width = 2048;
-    dirLight.shadow.mapSize.height = 2048;
+    dirLight.shadow.mapSize.width = 1024; // Optimized shadow resolution from 2048 to 1024
+    dirLight.shadow.mapSize.height = 1024;
     dirLight.shadow.camera.near = 0.5;
     dirLight.shadow.camera.far = 4000;
     dirLight.shadow.bias = -0.0005;
@@ -420,7 +493,8 @@ function init3D() {
 
     // Load Player's Boat Mesh
     loader.load("helpers/boat/scene.gltf", (gltf) => {
-        boatMesh = gltf.scene;
+        boatTemplate = gltf.scene;
+        boatMesh = boatTemplate.clone();
         boatMesh.scale.set(3, 3, 3);
         boatMesh.position.set(0, 24.0, START_Z);
         boatMesh.rotation.y = Math.PI * 0.5; // Face towards -Z (France)
@@ -458,54 +532,32 @@ function paintBoat(boatGroup, colorHex) {
     const color = new THREE.Color(colorHex);
     boatGroup.traverse((child) => {
         if (child.isMesh) {
-            // Delete vertex colors to prevent them from overriding the material color
+            // Xóa vertex colors để không bị đè
             if (child.geometry && child.geometry.attributes.color) {
                 child.geometry.deleteAttribute('color');
             }
             
-            const processMaterial = (mat) => {
-                const matName = (mat.name || "").toLowerCase();
-                const meshName = (child.name || "").toLowerCase();
-                
-                // Nếu chất liệu đã được sơn trước đó, cập nhật màu trực tiếp để tối ưu hiệu năng
-                if (matName.includes("painted")) {
+            // Sơn TẤT CẢ mesh trong thuyền bằng màu chọn
+            const paintMat = (mat) => {
+                if (mat.name && mat.name.includes("_painted")) {
                     mat.color.copy(color);
                     mat.needsUpdate = true;
                     return mat;
                 }
-                
-                // So khớp một phần an toàn hơn để thích ứng với mọi chỉnh sửa của GLTFLoader
-                const isHullMat = matName.includes("acmat_0") || matName.includes("acmat_7") || matName.includes("acmat_8") || matName.includes("acmat_13");
-                const isHullMesh = meshName.includes("object_2") || meshName.includes("object_7") || meshName.includes("object_13") || meshName.includes("object_14");
-                
-                if (isHullMat || isHullMesh) {
-                    return new THREE.MeshStandardMaterial({
-                        color: color,
-                        // Không dùng map (baseColor texture) vì texture gốc có màu baked-in sẽ đè lên màu chọn
-                        normalMap: mat.normalMap, // Bảo toàn bản đồ độ lồi lõm của bề mặt
-                        roughnessMap: mat.roughnessMap,
-                        metalnessMap: mat.metalnessMap,
-                        roughness: mat.roughness !== undefined ? mat.roughness : 0.15,
-                        metalness: mat.metalness !== undefined ? mat.metalness : 0.45,
-                        name: mat.name ? mat.name + "_painted" : "hull_painted",
-                        vertexColors: false // Đảm bảo không bị màu vertex đè lên
-                    });
-                }
-                return null;
+                return new THREE.MeshStandardMaterial({
+                    color: color,
+                    normalMap: mat.normalMap,
+                    roughness: 0.3,
+                    metalness: 0.2,
+                    name: (mat.name || 'hull') + '_painted',
+                    vertexColors: false
+                });
             };
 
             if (Array.isArray(child.material)) {
-                for (let i = 0; i < child.material.length; i++) {
-                    const newM = processMaterial(child.material[i]);
-                    if (newM && newM !== child.material[i]) {
-                        child.material[i] = newM;
-                    }
-                }
+                child.material = child.material.map(m => paintMat(m));
             } else if (child.material) {
-                const newM = processMaterial(child.material);
-                if (newM && newM !== child.material) {
-                    child.material = newM;
-                }
+                child.material = paintMat(child.material);
             }
         }
     });
@@ -535,6 +587,48 @@ function createRaceLanes() {
     const startLine = new THREE.Mesh(startLineGeom, startLineMat);
     startLine.position.set(0, 12.1, START_Z);
     scene.add(startLine);
+}
+
+// Helper to create 3D Floating Text Sprites using HTML Canvas texture
+function createFloatingTextSprite(text, subtitle) {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1024;
+    canvas.height = 256;
+    const ctx = canvas.getContext("2d");
+    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Premium backing gradient glow
+    const grad = ctx.createLinearGradient(0, 0, canvas.width, 0);
+    grad.addColorStop(0, "rgba(255, 59, 48, 0)");
+    grad.addColorStop(0.3, "rgba(255, 59, 48, 0.85)");
+    grad.addColorStop(0.5, "rgba(255, 204, 0, 0.95)");
+    grad.addColorStop(0.7, "rgba(255, 59, 48, 0.85)");
+    grad.addColorStop(1, "rgba(255, 59, 48, 0)");
+    
+    ctx.fillStyle = grad;
+    ctx.fillRect(50, 30, canvas.width - 100, 110);
+    
+    // Main Text Glow
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = "#ffcc00";
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 38px 'Montserrat', sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, canvas.width / 2, 85);
+    
+    // Subtitle text (no shadow to preserve crisp look)
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = "#ffcc00";
+    ctx.font = "italic 26px 'Be Vietnam Pro', sans-serif";
+    ctx.fillText(subtitle, canvas.width / 2, 190);
+    
+    const texture = new THREE.CanvasTexture(canvas);
+    const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+    const sprite = new THREE.Sprite(material);
+    sprite.scale.set(160, 40, 1);
+    return sprite;
 }
 
 // Upgraded 3D Procedural Scenery Generator for ultimate creative scoring
@@ -1041,24 +1135,40 @@ function createWorldScenery(scene) {
         sceneryBuoys.push({ mesh: rBuoy, offset: b * 0.7 + Math.PI });
     }
 
-    // 8. Glowing Hologram Tech Speed Rings
-    const ringGeom = new THREE.TorusGeometry(4.5, 0.35, 8, 24);
-    const ringMat = new THREE.MeshBasicMaterial({
-        color: 0x00f2fe,
-        transparent: true,
-        opacity: 0.55,
+    // 8. Physical 3D Neon Socialist Gates (Cổng lý luận phá vỡ hiểu lầm)
+    const outerGateGeom = new THREE.TorusGeometry(240, 3.0, 8, 64, Math.PI);
+    const outerGateMat = new THREE.MeshBasicMaterial({
+        color: 0xff3b30,
         side: THREE.DoubleSide,
-        blending: THREE.AdditiveBlending
+        transparent: true,
+        opacity: 0.85
     });
-    
-    const ringZPositions = [150, 0, -150, -300];
-    const ringLanes = [-160, -80, 80, 160];
-    
-    for (let r = 0; r < 4; r++) {
-        const ring = new THREE.Mesh(ringGeom, ringMat);
-        ring.position.set(ringLanes[r], 16.0, ringZPositions[r]);
-        scene.add(ring);
-        scenerySpeedRings.push(ring);
+
+    const innerGateGeom = new THREE.TorusGeometry(235, 1.5, 8, 64, Math.PI);
+    const innerGateMat = new THREE.MeshBasicMaterial({
+        color: 0xffcc00,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.9
+    });
+
+    for (let i = 0; i < gateZPositions.length; i++) {
+        const gateGroup = new THREE.Group();
+        gateGroup.position.set(0, 12.0, gateZPositions[i]);
+
+        const outerMesh = new THREE.Mesh(outerGateGeom, outerGateMat);
+        gateGroup.add(outerMesh);
+
+        const innerMesh = new THREE.Mesh(innerGateGeom, innerGateMat);
+        gateGroup.add(innerMesh);
+
+        // Floating labels above gates
+        const textSprite = createFloatingTextSprite(gateTitles[i], gateSubtitles[i]);
+        textSprite.position.set(0, 65.0, 0);
+        gateGroup.add(textSprite);
+
+        scene.add(gateGroup);
+        activeGates.push(gateGroup);
     }
 
     // 9. Swimming Sharks (Procedural Dorsal Fins)
@@ -1105,7 +1215,7 @@ function syncCompetitors(playersList) {
     playersList.forEach(p => {
         if (laneMap[p.sid] === undefined) {
             let freeLane = 0;
-            for (let i = 0; i < 30; i++) {
+            for (let i = 0; i < 100; i++) {
                 if (!usedLanes[i]) {
                     freeLane = i;
                     break;
@@ -1135,27 +1245,30 @@ function syncCompetitors(playersList) {
         }
 
         // Else spawn/update rival boats
-        if (!activePlayers[p.sid]) {
+        if (!activePlayers[p.sid] || activePlayers[p.sid].loading) {
+            const existing = activePlayers[p.sid];
             activePlayers[p.sid] = {
                 sid: p.sid,
                 name: p.name,
                 color: p.color,
-                progress: p.progress || 0.0,
+                progress: existing ? existing.progress : (p.progress || 0.0),
                 rank: p.rank || null,
                 mesh: null,
                 laneX: laneX,
-                heaveOffset: Math.random() * Math.PI
+                heaveOffset: Math.random() * Math.PI,
+                targetX: existing ? existing.targetX : laneX,
+                targetZ: existing ? existing.targetZ : targetZPos
             };
-            loader.load("helpers/boat/scene.gltf", (gltf) => {
-                const boat = gltf.scene;
+
+            const setupRivalBoat = (boat) => {
                 boat.scale.set(2.5, 2.5, 2.5);
-                const currentZ = START_Z - ((activePlayers[p.sid] ? activePlayers[p.sid].progress : p.progress || 0.0) * TOTAL_DIST);
+                const currentZ = START_Z - (activePlayers[p.sid].progress * TOTAL_DIST);
                 boat.position.set(laneX, 24.0, currentZ);
                 boat.rotation.y = Math.PI * 0.5; // Face towards -Z (France)
                 
                 boat.traverse((child) => {
                     if (child.isMesh) {
-                        child.castShadow = true;
+                        child.castShadow = false; // Optimized: Rival boats do not cast shadows to save hundreds of GPU draw calls
                         child.receiveShadow = true;
                     }
                 });
@@ -1173,7 +1286,16 @@ function syncCompetitors(playersList) {
                 } else {
                     scene.remove(boat);
                 }
-            });
+            };
+
+            if (boatTemplate) {
+                setupRivalBoat(boatTemplate.clone());
+            } else {
+                loader.load("helpers/boat/scene.gltf", (gltf) => {
+                    if (!boatTemplate) boatTemplate = gltf.scene;
+                    setupRivalBoat(boatTemplate.clone());
+                });
+            }
         } else {
             activePlayers[p.sid].progress = p.progress || 0.0;
             activePlayers[p.sid].rank = p.rank || null;
@@ -1194,15 +1316,22 @@ function onWindowResize() {
 }
 
 // 3D Animation Loop
+let lastFrameTime = performance.now();
+
 function animate() {
     try {
         requestAnimationFrame(animate);
         
-        const time = performance.now() * 0.001;
+        const nowTime = performance.now();
+        const deltaTime = Math.min((nowTime - lastFrameTime) * 0.001, 0.1); // Tính toán deltaTime an toàn
+        lastFrameTime = nowTime;
+        
+        const time = nowTime * 0.001;
+        const fpsRatio = deltaTime * 60;
         
         // Animate Water
         if (water && water.material && water.material.uniforms) {
-            water.material.uniforms["time"].value += 1.0 / 60.0;
+            water.material.uniforms["time"].value += deltaTime;
         }
 
         // 1. Animate Competitors
@@ -1214,8 +1343,10 @@ function animate() {
                         ? p.targetZ
                         : START_Z - (p.progress * TOTAL_DIST);
                 const targetX = p.targetX !== undefined ? p.targetX : p.laneX;
-                p.mesh.position.z += (targetZPos - p.mesh.position.z) * 0.12;
-                p.mesh.position.x += (targetX - p.mesh.position.x) * 0.12;
+                
+                // Nội suy Lerp độc lập với FPS cho chuyển động đối thủ cực mịn
+                p.mesh.position.z += (targetZPos - p.mesh.position.z) * 0.15 * fpsRatio;
+                p.mesh.position.x += (targetX - p.mesh.position.x) * 0.15 * fpsRatio;
                 
                 // Bobbing physics
                 const bob = Math.sin(time * 2.0 + p.heaveOffset) * 0.22;
@@ -1226,7 +1357,11 @@ function animate() {
                 p.mesh.rotation.x = pitch;
                 p.mesh.rotation.z = roll;
                 
-                // Lá cờ của đối thủ đứng yên uy nghiêm
+                // NÂNG CẤP: Lá cờ đỏ sao vàng của đối thủ bay phấp phới uy nghiêm trong gió
+                if (p.mesh.userData.flagMesh) {
+                    const flagWave = Math.sin(time * 12 + p.heaveOffset) * 0.15 + Math.cos(time * 6) * 0.05;
+                    p.mesh.userData.flagMesh.rotation.y = Math.PI / 2 + flagWave;
+                }
             }
         });
 
@@ -1234,8 +1369,8 @@ function animate() {
         if (boatMesh) {
             const targetZPos = START_Z - (currentProgress * TOTAL_DIST);
             
-            // Lerp boat Z position for ultra-smooth movement
-            boatMesh.position.z += (targetZPos - boatMesh.position.z) * 0.08;
+            // Lerp boat Z position for ultra-smooth movement (FPS independent)
+            boatMesh.position.z += (targetZPos - boatMesh.position.z) * 0.08 * fpsRatio;
             
             // Assign my Lane X coordinate
             const myLaneX = (boatMesh.userData.laneX !== undefined) ? boatMesh.userData.laneX : 0;
@@ -1251,7 +1386,39 @@ function animate() {
             boatMesh.rotation.z = roll;
             boatMesh.rotation.y = Math.PI * 0.5 + Math.sin(time * 0.5) * 0.01;
 
-            // Lá cờ của người chơi đứng yên uy nghiêm
+            // NÂNG CẤP: Lá cờ đỏ sao vàng của người chơi bay phấp phới lấp lánh trong gió
+            if (boatMesh.userData.flagMesh) {
+                const flagWave = Math.sin(time * 12) * 0.16 + Math.cos(time * 6) * 0.06;
+                boatMesh.userData.flagMesh.rotation.y = Math.PI / 2 + flagWave;
+            }
+
+            // CHECK GATE CROSSING
+            const currentZ = boatMesh.position.z;
+            for (let i = 0; i < gateZPositions.length; i++) {
+                if (!passedGates[i] && currentZ <= gateZPositions[i]) {
+                    passedGates[i] = true;
+                    
+                    // Trigger Screen Shake
+                    document.body.classList.add("screen-shake");
+                    setTimeout(() => {
+                        document.body.classList.remove("screen-shake");
+                    }, 800);
+                    
+                    // Trigger Gate Flash Overlay
+                    const flashOverlay = document.getElementById("gate-flash-overlay");
+                    if (flashOverlay) {
+                        flashOverlay.classList.remove("flash");
+                        void flashOverlay.offsetWidth; // Trigger reflow
+                        flashOverlay.classList.add("flash");
+                    }
+                    
+                    // Synthesize gate chord sound!
+                    playSynthesizedSound("gate_chord");
+                    
+                    // Floating text alert
+                    showFloatingText(`🔓 ĐÃ PHÁ VỠ: ${gateTitles[i].split(": ")[1]}!`);
+                }
+            }
 
             // G-FORCE DYNAMIC CAMERA CHASE FOLLOW
             const idealCamX = myLaneX;
@@ -1259,17 +1426,17 @@ function animate() {
             const idealCamZ = boatMesh.position.z + 24.0; // Ideal distance behind
 
             // Tight follow along X and Y
-            camera.position.x += (idealCamX - camera.position.x) * 0.1;
-            camera.position.y += (idealCamY - camera.position.y) * 0.1;
+            camera.position.x += (idealCamX - camera.position.x) * 0.1 * fpsRatio;
+            camera.position.y += (idealCamY - camera.position.y) * 0.1 * fpsRatio;
 
             // Delayed spring lag (0.04 lerp) on Z axis to showcase acceleration surge!
-            camera.position.z += (idealCamZ - camera.position.z) * 0.04;
+            camera.position.z += (idealCamZ - camera.position.z) * 0.04 * fpsRatio;
             
             // Apply FOV burst on acceleration
             if (accelerationEffect > 0) {
                 camera.fov = 60 + accelerationEffect * 8;
                 camera.updateProjectionMatrix();
-                accelerationEffect -= 0.02; // Damping
+                accelerationEffect -= 0.02 * fpsRatio; // Damping
             } else {
                 if (camera.fov !== 60) {
                     camera.fov = 60;
@@ -1384,10 +1551,9 @@ function animate() {
             buoy.mesh.position.y = 12.5 + Math.sin(time * 1.5 + buoy.offset) * 0.15;
         });
 
-        // G. Vòng Neon tự xoay và bay lửng lơ
-        scenerySpeedRings.forEach((ring, idx) => {
-            ring.rotation.y += 0.015;
-            ring.position.y = 16.0 + Math.sin(time * 2.0 + idx) * 0.4;
+        // G. Cổng Neon bobbing nhẹ nhàng
+        activeGates.forEach((gateGroup, idx) => {
+            gateGroup.position.y = Math.sin(time * 1.5 + idx) * 0.8;
         });
 
         // H. Swimming Sharks (Procedural Fins) bobbing and moving in circles
@@ -1460,13 +1626,23 @@ function maybePublishPosition() {
     });
 }
 
+window.activeBots = [];
+
 async function refreshLobbyFromPresence() {
-    if (!ablyChannel) return;
+    if (!ablyChannel || isRefreshingPresence) return;
+    isRefreshingPresence = true;
     try {
-        const players = await getPresenceMembers(ablyChannel);
+        let players = await getPresenceMembers(ablyChannel);
+        if (window.activeBots && window.activeBots.length > 0) {
+            players = [...players, ...window.activeBots];
+        }
         syncCompetitors(players);
     } catch (e) {
         console.warn("presence sync failed:", e);
+    } finally {
+        setTimeout(() => {
+            isRefreshingPresence = false;
+        }, 1000);
     }
 }
 
@@ -1485,6 +1661,14 @@ function setupAblyListeners(channel) {
             activePlayers[data.id].targetX = data.x;
             activePlayers[data.id].targetZ = data.z;
         } else {
+            // Create a temporary placeholder to prevent redundant presence queries
+            activePlayers[data.id] = {
+                sid: data.id,
+                loading: true,
+                progress: data.progress ?? 0.0,
+                targetX: data.x,
+                targetZ: data.z
+            };
             refreshLobbyFromPresence();
         }
     });
@@ -1512,10 +1696,19 @@ function handleAdminEvent(data) {
         case "game_over":
             if (data.winners) onGameOver({ winners: data.winners, players: data.players || [] });
             break;
+        case "stress_test_start":
+            window.activeBots = data.bots || [];
+            refreshLobbyFromPresence();
+            break;
+        case "stress_test_stop":
+            window.activeBots = [];
+            refreshLobbyFromPresence();
+            break;
     }
 }
 
 function onGameReset() {
+    stopNationalAnthem();
     currentProgress = 0.0;
     targetZ = START_Z;
     accelerationEffect = 0.0;
@@ -1626,6 +1819,7 @@ function applyNextQuestion(data) {
 
     optionButtons.forEach((btn) => {
         btn.classList.remove("selected", "success", "error");
+        btn.classList.add("controller-mode"); // Đưa các nút đáp án thành các pad buzzer siêu to rực rỡ
         btn.disabled = false;
         btn.style.opacity = "1";
         btn.style.pointerEvents = "auto";
@@ -1633,24 +1827,47 @@ function applyNextQuestion(data) {
 
     const questionNum = data.num_answered + 1;
     questionNumberBadge.innerText = `CÂU HỎI ${questionNum}`;
-    questionText.innerText = data.question_text;
+    
+    // Yêu cầu người chơi tập trung vào màn hình chiếu chính
+    questionText.innerText = "HÃY NHÌN LÊN MÀN HÌNH CHÍNH ĐỂ XEM CÂU HỎI & CÁC ĐÁP ÁN!";
+    
     data.options.forEach((opt, idx) => {
         document.getElementById(`opt-${idx}`).innerText = opt;
     });
+
+    // Real-time synchronization: publish current question info to main spectator screen
+    if (ablyChannel && myPlayer) {
+        ablyChannel.publish("current-question", {
+            playerName: myPlayer.name,
+            color: myPlayer.color,
+            questionNum: questionNum,
+            question_text: data.question_text,
+            options: data.options
+        });
+    }
 }
 
 function sendNextQuestion(lastCorrect = null) {
-    if (!gameStarted || gamePaused || quizQueueIdx >= quizQueue.length) return;
+    if (!gameStarted || gamePaused) return;
 
-    const qIdx = quizQueue[quizQueueIdx];
-    const q = QUESTIONS[qIdx];
-    const data = {
-        question_text: q.question,
-        options: q.options,
-        num_answered: quizScore,
-        total_questions: TARGET_CORRECT_ANSWERS,
-        progress: Math.min(1, quizScore / TARGET_CORRECT_ANSWERS),
-    };
+    const finished = quizScore >= TARGET_CORRECT_ANSWERS;
+
+    if (quizQueueIdx >= quizQueue.length && !finished) {
+        return;
+    }
+
+    let nextData = null;
+    if (!finished) {
+        const nextQIdx = quizQueue[quizQueueIdx];
+        const nextQ = QUESTIONS[nextQIdx];
+        nextData = {
+            question_text: nextQ.question,
+            options: nextQ.options,
+            num_answered: quizScore,
+            total_questions: TARGET_CORRECT_ANSWERS,
+            progress: Math.min(1, quizScore / TARGET_CORRECT_ANSWERS),
+        };
+    }
 
     if (lastCorrect !== null) {
         feedbackOverlay.classList.remove("correct", "wrong");
@@ -1669,11 +1886,46 @@ function sendNextQuestion(lastCorrect = null) {
 
         setTimeout(() => {
             feedbackOverlay.classList.remove("active");
-            applyNextQuestion(data);
+            
+            // Render the Explanation Card Overlay
+            const lastQIdx = quizQueue[quizQueueIdx - 1];
+            const lastQ = QUESTIONS[lastQIdx];
+            
+            const explanationOverlay = document.getElementById("explanation-overlay");
+            const explanationBadge = document.getElementById("explanation-badge");
+            const explanationChapter = document.getElementById("explanation-chapter");
+            const explanationTitle = document.getElementById("explanation-title");
+            const explanationText = document.getElementById("explanation-text");
+            
+            if (explanationOverlay && lastQ) {
+                const misconceptionIdx = Math.floor(lastQIdx / 3);
+                const misconceptionNames = [
+                    "HIỂU LẦM 1: XÓA BỎ SỞ HỮU CÁ NHÂN",
+                    "HIỂU LẦM 2: MÔ HÌNH CÀO BẰNG",
+                    "HIỂU LẦM 3: TRIỆT TIÊU DÂN CHỦ",
+                    "HIỂU LẦM 4: KHÔNG TƯỞNG & THẤT BẠI",
+                    "HIỂU LẦM 5: ĐỐI LẬP TUYỆT ĐỐI VỚI CNTB"
+                ];
+                
+                explanationChapter.innerText = misconceptionNames[misconceptionIdx] || "ĐẠI DƯƠNG CHÂN LÝ";
+                explanationTitle.innerText = `PHÁ BỎ HIỂU LẦM: ${lastQ.question}`;
+                explanationText.innerText = lastQ.explanation;
+                
+                explanationOverlay.style.opacity = "1";
+                explanationOverlay.style.pointerEvents = "auto";
+                
+                pendingNextQuestionData = nextData;
+            } else {
+                if (finished) {
+                    onVictory({ rank: myPlayer.rank });
+                } else {
+                    applyNextQuestion(nextData);
+                }
+            }
         }, 1300);
     } else {
         feedbackOverlay.classList.remove("active", "correct", "wrong");
-        applyNextQuestion(data);
+        applyNextQuestion(nextData);
     }
 }
 
@@ -1820,13 +2072,9 @@ function useTurboBoost() {
             }
         });
         myPlayer.rank = finishedCount + 1;
-        onVictory({ rank: myPlayer.rank });
-        return;
     }
 
-    if (!finished) {
-        sendNextQuestion(true); // Plays correctness sound and transitions smoothly
-    }
+    sendNextQuestion(true); // Always transition to explanation overlay phase first!
 }
 
 // Item 3: Lá Chắn Sao Vàng / Star Shield (Blocks 1 wrong answer, keeps streak alive)
@@ -1930,13 +2178,9 @@ function handleLocalAnswer(answerIdx) {
             }
         });
         myPlayer.rank = finishedCount + 1;
-        onVictory({ rank: myPlayer.rank });
-        return;
     }
 
-    if (!finished) {
-        sendNextQuestion(finalCorrect);
-    }
+    sendNextQuestion(finalCorrect); // Always transition to explanation overlay phase first!
 }
 
 // SUBMIT OPTION CLICK
@@ -2058,6 +2302,7 @@ function onGameOver(data) {
     // Stop background music
     if (bgmLobby) bgmLobby.pause();
     if (bgmGameplay) bgmGameplay.pause();
+    playNationalAnthem();
     
     // Sync final competitor states
     syncCompetitors(data.players);
@@ -2259,5 +2504,141 @@ function showCheatWarning(message) {
         toast.style.opacity = "0";
         toast.style.transform = "translateX(-50%) translateY(100px)";
     }, 3000);
+}
+
+// ==========================================================================
+// Explanation Continue Handler
+// ==========================================================================
+const explanationContinueBtn = document.getElementById("explanation-continue-btn");
+if (explanationContinueBtn) {
+    explanationContinueBtn.addEventListener("click", () => {
+        const explanationOverlay = document.getElementById("explanation-overlay");
+        if (explanationOverlay) {
+            explanationOverlay.style.opacity = "0";
+            explanationOverlay.style.pointerEvents = "none";
+        }
+        
+        const finished = quizScore >= TARGET_CORRECT_ANSWERS;
+        if (finished) {
+            onVictory({ rank: myPlayer.rank });
+        } else if (pendingNextQuestionData) {
+            applyNextQuestion(pendingNextQuestionData);
+            pendingNextQuestionData = null;
+        }
+    });
+}
+
+// ==========================================================================
+// Hall of Fame (Bảng Vàng Lịch Sử) Client Logic
+// ==========================================================================
+const openHofBtn = document.getElementById("open-hof-btn");
+const closeHofBtn = document.getElementById("close-hof-btn");
+const hofModal = document.getElementById("hall-of-fame-modal");
+const hofList = document.getElementById("hall-of-fame-list");
+
+if (openHofBtn) {
+    openHofBtn.addEventListener("click", () => {
+        openHallOfFame();
+    });
+}
+
+if (closeHofBtn) {
+    closeHofBtn.addEventListener("click", () => {
+        closeHallOfFame();
+    });
+}
+
+if (hofModal) {
+    hofModal.addEventListener("click", (e) => {
+        if (e.target === hofModal) {
+            closeHallOfFame();
+        }
+    });
+}
+
+function openHallOfFame() {
+    if (hofModal) {
+        hofModal.classList.add("active");
+        fetchHallOfFameData();
+    }
+}
+
+function closeHallOfFame() {
+    if (hofModal) {
+        hofModal.classList.remove("active");
+    }
+}
+
+function fetchHallOfFameData() {
+    if (!hofList) return;
+    hofList.innerHTML = '<tr><td colspan="5" class="text-center">Đang tải dữ liệu xếp hạng...</td></tr>';
+    
+    fetch("/api/leaderboard")
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.leaderboard) {
+                renderHallOfFame(data.leaderboard);
+            } else {
+                hofList.innerHTML = '<tr><td colspan="5" class="text-center" style="color: #e74c3c;">Lỗi tải bảng xếp hạng!</td></tr>';
+            }
+        })
+        .catch(err => {
+            console.error("Error fetching leaderboard:", err);
+            hofList.innerHTML = '<tr><td colspan="5" class="text-center" style="color: #e74c3c;">Không thể kết nối đến máy chủ!</td></tr>';
+        });
+}
+
+function renderHallOfFame(leaderboard) {
+    if (leaderboard.length === 0) {
+        hofList.innerHTML = '<tr><td colspan="5" class="text-center" style="color: #8da2c4;">Chưa có kỷ lục nào được ghi nhận. Hãy trở thành người đầu tiên!</td></tr>';
+        return;
+    }
+    
+    hofList.innerHTML = "";
+    leaderboard.forEach((r, idx) => {
+        const tr = document.createElement("tr");
+        
+        let rankClass = "";
+        let rankDecor = r.rank;
+        if (r.rank === 1) {
+            rankClass = "hof-rank-1";
+            rankDecor = "🥇 Vàng";
+        } else if (r.rank === 2) {
+            rankClass = "hof-rank-2";
+            rankDecor = "🥈 Bạc";
+        } else if (r.rank === 3) {
+            rankClass = "hof-rank-3";
+            rankDecor = "🥉 Đồng";
+        }
+        
+        // Format time to MM:SS.SS
+        const minutes = Math.floor(r.race_time / 60);
+        const seconds = (r.race_time % 60).toFixed(2);
+        const timeStr = `${minutes > 0 ? minutes + "m " : ""}${seconds}s`;
+        
+        // Format date dynamically
+        const dateObj = new Date(r.created_at);
+        const dateStr = dateObj.toLocaleDateString("vi-VN", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit"
+        });
+        
+        tr.innerHTML = `
+            <td class="${rankClass}">${rankDecor}</td>
+            <td>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${r.color}; box-shadow: 0 0 6px ${r.color};"></span>
+                    <strong>${r.name}</strong>
+                </div>
+            </td>
+            <td>${r.score}/15</td>
+            <td style="color: #00f2fe; font-family: monospace; font-weight: bold;">${timeStr}</td>
+            <td style="color: #8da2c4; font-size: 0.8rem;">${dateStr}</td>
+        `;
+        hofList.appendChild(tr);
+    });
 }
 

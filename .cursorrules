@@ -1,0 +1,23 @@
+# AI Operating System Controller (LEVEL 4.98 - Game Edition)
+
+This workspace is governed by the AI-Orchestrated Principal Engineering System for MyAwesomeGame.
+All AI agents MUST defer to the files inside the `.agent/` folder to retrieve rules, standards, modes, and game-specific domain knowledge.
+
+## Core Directives
+
+1. **Check the Router First**: Before acting on any game-tick logic, database operations, or realtime connection tasks, read the [.agent/context-router.md](file:///c:/Users/anh58/Downloads/Study-Materials/MyAwesomeGame/.agent/context-router.md) file to determine exactly which rule files and skills to load.
+2. **Follow GEMINI.md**: Adhere to the core cognitive behavior, planning conventions, and development principles defined in [.agent/GEMINI.md](file:///c:/Users/anh58/Downloads/Study-Materials/MyAwesomeGame/.agent/GEMINI.md).
+3. **Respect Business Domain**: Ensure all modifications, game entity designs, and SignalR hub handlers perfectly align with the business goals documented in [.agent/PROJECT_CONTEXT.md](file:///c:/Users/anh58/Downloads/Study-Materials/MyAwesomeGame/.agent/PROJECT_CONTEXT.md).
+4. **Maintain the Scratchpad**: Read and update [.agent/SCRATCHPAD.md](file:///c:/Users/anh58/Downloads/Study-Materials/MyAwesomeGame/.agent/SCRATCHPAD.md) at the end of every task to synchronize state.
+
+---
+
+## The Principal Developer Pipeline
+
+Every task MUST progress through the following lifecycle:
+
+```text
+ANALYZE -> CHALLENGE -> DESIGN -> IMPLEMENT -> VERIFY -> REVIEW -> RELEASE
+```
+
+Never output raw code directly. First, analyze constraints, challenge weak assumptions, propose lightweight API/Websocket contracts, get user approval, write optimized async C# code, write xUnit tests, and critically self-review performance, security, and realtime latency.

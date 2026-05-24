@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Thuyền Đua Việt - Pháp | Đua Thuyền Quiz 3D</title>
+    <title>Đại Dương Chân Lý | Phá Vỡ 5 Hiểu Lầm Về CNXH</title>
     <!-- Google Fonts for Premium Gaming Aesthetics -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -25,9 +25,9 @@
         }
       }
     </script>
-  <script type="module" crossorigin src="/assets/main-CWF7aqGt.js"></script>
-  <link rel="modulepreload" crossorigin href="/assets/ably-realtime-y4N5Di-M.js">
-  <link rel="stylesheet" crossorigin href="/assets/ably-realtime-B9eD3Smq.css">
+  <script type="module" crossorigin src="/assets/main-DxooOaZF.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/ably-realtime-DXHHAe3-.js">
+  <link rel="stylesheet" crossorigin href="/assets/ably-realtime-CM5RO9SH.css">
 </head>
 <body>
     <!-- 3D Canvas Container -->
@@ -35,17 +35,17 @@
     
     <!-- Lobby UI (Overlay) -->
     <div id="lobby-screen" class="glass-panel active">
-        <h1 class="glow-text title-animation">VIỆT NAM <span class="accent-text">➜</span> PHÁP</h1>
-        <p class="subtitle">Cuộc Đua Tri Thức - Vượt Đại Dương 3D</p>
+        <h1 class="glow-text title-animation" style="letter-spacing: 2px;">ĐẠI DƯƠNG CHÂN LÝ</h1>
+        <p class="subtitle">Phá Vỡ 5 Hiểu Lầm Về Chủ Nghĩa Xã Hội</p>
         
         <div class="form-container">
             <div class="input-group">
-                <label for="player-name">TÊN THUYỀN TRƯỞNG</label>
+                <label for="player-name">DANH XƯNG THUYỀN TRƯỞNG</label>
                 <input type="text" id="player-name" placeholder="Nhập tên của bạn..." autocomplete="off" maxlength="15">
             </div>
             
             <div class="color-picker-group">
-                <label>MÀU SẮC THUYỀN ĐUA</label>
+                <label>MÀU NEON THUYỀN TRI THỨC</label>
                 <div class="color-options">
                     <button class="color-btn active" style="background: #e74c3c;" data-color="#e74c3c" title="Đỏ"></button>
                     <button class="color-btn" style="background: #9b59b6;" data-color="#9b59b6" title="Tím"></button>
@@ -57,7 +57,8 @@
                 </div>
             </div>
             
-            <button id="join-btn" class="glow-btn">BẮT ĐẦU RA KHƠI</button>
+            <button id="join-btn" class="glow-btn">CHINH PHỤC ĐẠI DƯƠNG</button>
+            <button id="open-hof-btn" class="glow-btn hof-btn-style">🏆 BẢNG VÀNG LỊCH SỬ</button>
         </div>
     </div>
     
@@ -67,8 +68,8 @@
             <div class="radar"></div>
             <div class="radar-ping"></div>
         </div>
-        <h2 class="glow-text">ĐÃ SẴN SÀNG RA KHƠI!</h2>
-        <p id="player-welcome-msg">Chào Thuyền Trưởng, thuyền của bạn đã vào vị trí xuất phát.</p>
+        <h2 class="glow-text">ĐÃ VÀO VỊ TRÍ XUẤT PHÁT!</h2>
+        <p id="player-welcome-msg">Chào Thuyền Trưởng, chiến thuyền tri thức đã sẵn sàng lướt sóng.</p>
         <div class="status-box">
             <span class="pulse-dot"></span> Đang chờ Ban Tổ Chức (Admin) phát lệnh xuất phát...
         </div>
@@ -79,15 +80,15 @@
         <!-- Progress Header -->
         <div class="race-progress-container">
             <div class="progress-labels">
-                <span class="flag-icon">🇻🇳 VIỆT NAM</span>
+                <span class="flag-icon">🌫️ SƯƠNG MÙ HIỂU LẦM</span>
                 <div class="progress-bar-wrapper">
                     <div id="player-progress-bar" class="progress-bar-fill" style="width: 0%"></div>
                     <!-- Miniature boat indicator -->
                     <div id="player-progress-boat" class="progress-boat-icon" style="left: 0%">⛵</div>
                 </div>
-                <span class="flag-icon">🇫🇷 PHÁP</span>
+                <span class="flag-icon">☀️ ĐẠI LỘ CHÂN LÝ</span>
             </div>
-            <div class="answered-counter">ĐÃ HOÀN THÀNH: <span id="correct-count">0</span>/15 CÂU</div>
+            <div class="answered-counter">BẢN LĨNH LÝ LUẬN: <span id="correct-count">0</span>/15 CÂU</div>
         </div>
         
         <!-- Quiz Main Card -->
@@ -121,21 +122,21 @@
 
         <!-- Inventory panel for items -->
         <div class="inventory-panel glass-panel">
-            <div class="inventory-title">⚙️ VẬT PHẨM HỖ TRỢ (ĐẠT CHUỖI ĐỂ NHẬN THÊM)</div>
+            <div class="inventory-title">⚙️ VẬT PHẨM HỖ TRỢ (DUY TRÌ CHUỖI ĐÚNG ĐỂ NHẬN)</div>
             <div class="items-row">
                 <button id="item-radar" class="item-btn" onclick="useSmartRadar();" title="Loại bỏ 2 đáp án sai">
                     <span class="item-icon">💡</span>
-                    <span class="item-label">Radar 50-50</span>
+                    <span class="item-label">Radar Chân Lý</span>
                     <span id="count-radar" class="item-badge">1</span>
                 </button>
                 <button id="item-boost" class="item-btn locked" onclick="useTurboBoost();" title="Đạt chuỗi x3 để mở khóa - Tiến nhanh +1 câu">
                     <span class="item-icon">🚀</span>
-                    <span class="item-label">Phản Lực</span>
+                    <span class="item-label">Động Cơ Phản Lực</span>
                     <span id="count-boost" class="item-badge">0</span>
                 </button>
                 <button id="item-shield" class="item-btn locked" onclick="useShield();" title="Đạt chuỗi x5 để mở khóa - Chặn 1 câu sai">
                     <span class="item-icon">🛡️</span>
-                    <span class="item-label">Lá Chắn</span>
+                    <span class="item-label">Lá Chắn Sao Vàng</span>
                     <span id="count-shield" class="item-badge">0</span>
                 </button>
             </div>
@@ -156,6 +157,22 @@
         <div class="feedback-content">
             <h1 id="feedback-title" class="feedback-main">CHÍNH XÁC!</h1>
             <p id="feedback-desc" class="feedback-sub">Thuyền của bạn đang tăng tốc vượt sóng...</p>
+        </div>
+    </div>
+
+    <!-- Explanation Card Overlay (New Educational Feature!) -->
+    <div id="explanation-overlay" class="feedback-screen" style="z-index: 2000; background: rgba(7, 10, 18, 0.95); backdrop-filter: blur(15px); pointer-events: none; opacity: 0; transition: opacity 0.4s;">
+        <div class="feedback-content" style="max-width: 600px; width: 90%; margin: 0 auto; text-align: left; pointer-events: auto;">
+            <div class="explanation-card glass-panel" style="padding: 30px; border: 2px solid rgba(0, 242, 254, 0.4); box-shadow: 0 0 30px rgba(0, 242, 254, 0.2); width: 100%;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <span id="explanation-badge" class="question-badge" style="background: linear-gradient(135deg, #f1c40f 0%, #f39c12 100%); color: #060913; font-weight: 800; padding: 6px 15px; border-radius: 20px; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; line-height: 1;">SỰ THẬT LÀ...</span>
+                    <span id="explanation-chapter" style="color: #ff3b30; font-weight: bold; font-size: 0.85rem; letter-spacing: 1px;">HIỂU LẦM 1</span>
+                </div>
+                <h3 id="explanation-title" style="color: #ffffff; font-family: 'Montserrat', sans-serif; font-size: 1.3rem; font-weight: 800; line-height: 1.4; margin-bottom: 15px; text-shadow: 0 0 10px rgba(255,255,255,0.1);">Hiểu lầm được phá bỏ!</h3>
+                <div class="leaderboard-divider" style="margin: 15px 0;"></div>
+                <p id="explanation-text" style="color: #8da2c4; font-size: 1rem; line-height: 1.6; margin-bottom: 25px; font-weight: 500;">Đây là nội dung giải thích sắc bén...</p>
+                <button id="explanation-continue-btn" class="glow-btn" style="width: 100%; padding: 14px; font-weight: bold; font-size: 1rem; border-radius: 8px; background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%); border: 1px solid rgba(0, 242, 254, 0.5); text-shadow: 0 1px 3px rgba(0,0,0,0.3); color: #060913;">TIẾP TỤC HÀNH TRÌNH ➜</button>
+            </div>
         </div>
     </div>
     
@@ -183,7 +200,7 @@
                     <span class="trophy-emoji">🏆</span>
                 </div>
                 <h1 class="glow-text victory-title">CHIẾN THẮNG VẺ VANG!</h1>
-                <p class="victory-desc">Chúc mừng bạn đã cập cảng nước Pháp thành công ở Vị trí thứ <span id="victory-rank" class="rank-highlight">1</span>!</p>
+                <p class="victory-desc">Chúc mừng bạn đã chinh phục thành công Đại Dương Chân Lý ở Vị trí thứ <span id="victory-rank" class="rank-highlight">1</span>!</p>
             </div>
             
             <!-- Explosion View -->
@@ -191,8 +208,8 @@
                 <div class="explosion-wrapper">
                     <div class="fire-flame">💥</div>
                 </div>
-                <h1 class="glow-text explode-title">THUYỀN ĐÃ BỊ NỔ TUNG!</h1>
-                <p class="explode-desc">Cuộc đua đã kết thúc! Top 3 thuyền nhanh nhất đã về đích, các thuyền còn lại đã bị đánh chìm.</p>
+                <h1 class="glow-text explode-title">THUYỀN ĐÃ BỊ ĐÁNH CHÌM!</h1>
+                <p class="explode-desc">Cuộc đua kết thúc! Thuyền của bạn chưa kịp phá vỡ hết 5 hiểu lầm và đã chìm trong sương mù lý luận!</p>
             </div>
             
             <!-- Leaderboard in GameOver -->
@@ -204,6 +221,33 @@
             </div>
             
             <button onclick="window.location.reload();" class="glow-btn reset-btn">CHƠI LẠI</button>
+        </div>
+    </div>
+    
+    <!-- Hall of Fame Modal Overlay -->
+    <div id="hall-of-fame-modal" class="modal-overlay">
+        <div class="modal-content glass-panel">
+            <button id="close-hof-btn" class="close-modal-btn">&times;</button>
+            <h2 class="glow-text text-center">🏆 BẢNG VÀNG LỊCH SỬ</h2>
+            <h3 class="panel-subtitle text-center">KỶ LỤC CÁC CUỘC ĐUA MỌI THỜI ĐẠI</h3>
+            <div class="leaderboard-divider"></div>
+            <div class="modal-table-container">
+                <table class="hall-of-fame-table">
+                    <thead>
+                        <tr>
+                            <th>Hạng</th>
+                            <th>Thuyền Trưởng</th>
+                            <th>Câu Đúng</th>
+                            <th>Thời Gian</th>
+                            <th>Ngày Đua</th>
+                        </tr>
+                    </thead>
+                    <tbody id="hall-of-fame-list">
+                        <!-- Loaded dynamically via API -->
+                        <tr><td colspan="5" class="text-center">Đang tải dữ liệu xếp hạng...</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
     

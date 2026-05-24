@@ -1,310 +1,176 @@
 export const QUESTIONS = [
+  // --- HIỂU LẦM 1: XÓA BỎ SỞ HỮU CÁ NHÂN & TRIỆT TIÊU ĐỘNG LỰC ---
   {
-    question:
-      'Đặc điểm lớn nhất của thời kỳ quá độ lên chủ nghĩa xã hội ở Việt Nam theo Hồ Chí Minh là gì?',
+    question: "Hiểu lầm phổ biến cho rằng 'Chủ nghĩa xã hội xóa bỏ mọi sở hữu cá nhân'. Thực chất, lý luận Mác-Lênin chủ trương xóa bỏ loại sở hữu nào?",
     options: [
-      'Có nền kinh tế công nghiệp hiện đại ngay từ đầu.',
-      'Từ một nước nông nghiệp lạc hậu tiến thẳng lên CNXH, không kinh qua giai đoạn phát triển tư bản chủ nghĩa.',
-      'Có sự giúp đỡ tuyệt đối và toàn diện từ các nước xã hội chủ nghĩa anh em.',
-      'Xây dựng CNXH trong điều kiện đất nước đã hoàn toàn thống nhất và hòa bình.',
+      "Sở hữu cá nhân đối với tư liệu sinh hoạt (quần áo, nhà ở, xe cộ gia đình...)",
+      "Sở hữu tư nhân về tư liệu sản xuất quy mô lớn (nhà máy, đất đai dùng để bóc lột)",
+      "Sở hữu trí tuệ của các nhà phát minh khoa học công nghệ",
+      "Sở hữu tập thể của các hợp tác xã sản xuất nhỏ và vừa"
     ],
     answer: 1,
+    explanation: "CNXH chỉ xóa bỏ sở hữu tư nhân về tư liệu sản xuất lớn - nguồn gốc của áp bức, bóc lột sức lao động. Còn sở hữu cá nhân đối với tư liệu sinh hoạt (nhà ở, xe cộ, tài sản riêng...) vẫn hoàn toàn được tôn trọng và bảo vệ!"
   },
   {
-    question: 'Theo Hồ Chí Minh, thực chất của thời kỳ quá độ lên CNXH ở nước ta là quá trình gì?',
+    question: "Nguyên tắc phân phối cốt lõi của giai đoạn chủ nghĩa xã hội là gì, giúp kích thích tối đa tinh thần lao động sáng tạo của mỗi cá nhân?",
     options: [
-      'Cải biến nền sản xuất lạc hậu thành nền sản xuất hiện đại.',
-      'Xóa bỏ ngay lập tức mọi hình thức sở hữu tư nhân về tư liệu sản xuất.',
-      'Tập trung toàn lực vào việc xuất khẩu nông sản để tích lũy vốn.',
-      'Xây dựng hệ thống chính trị dựa trên sự điều khiển của trí tuệ nhân tạo.',
+      "Làm theo năng lực, hưởng theo nhu cầu xã hội",
+      "Làm theo năng lực, hưởng theo kết quả lao động đóng góp",
+      "Chia đều của cải xã hội một cách cào bằng tuyệt đối",
+      "Phân phối dựa theo độ tuổi và thâm niên công tác"
+    ],
+    answer: 1,
+    explanation: "Nguyên tắc 'Làm theo năng lực, hưởng theo lao động' (làm nhiều hưởng nhiều, làm ít hưởng ít) chính là động lực mạnh mẽ khuyến khích mỗi cá nhân không ngừng cống hiến hết tài năng và thụ hưởng thành quả tương xứng."
+  },
+  {
+    question: "Làm thế nào để chủ nghĩa xã hội khuyến khích động lực cá nhân phát triển lành mạnh và bền vững nhất?",
+    options: [
+      "Khuyến khích cạnh tranh khốc liệt để triệt hạ lẫn nhau",
+      "Kết hợp hài hòa giữa lợi ích cá nhân, lợi ích tập thể và lợi ích toàn xã hội",
+      "Buộc cá nhân phải cống hiến hoàn toàn miễn phí cho nhà nước",
+      "Xóa bỏ toàn bộ tiền tệ và sử dụng cơ chế đổi chác hàng hóa trực tiếp"
+    ],
+    answer: 1,
+    explanation: "CNXH không triệt tiêu cá nhân, mà tạo môi trường tốt nhất để cá nhân tỏa sáng bằng cách kết hợp hài hòa lợi ích riêng và chung, loại bỏ sự cá nhân ích kỷ lẫn chủ nghĩa cào bằng tiêu cực."
+  },
+
+  // --- HIỂU LẦM 2: MÔ HÌNH NGHÈO NÀN & CÀO BẰNG ---
+  {
+    question: "Karl Marx và Friedrich Engels khẳng định điều kiện tiên quyết mang tính quyết định để xây dựng thành công chủ nghĩa xã hội là gì?",
+    options: [
+      "Kìm hãm sự phát triển của công nghệ hiện đại để tránh thất nghiệp",
+      "Xây dựng lực lượng sản xuất phát triển cao và của cải xã hội vô cùng dồi dào",
+      "Duy trì nền nông nghiệp lạc hậu và sản xuất thủ công thô sơ",
+      "Tập trung phân chia của cải hiện có mà không cần tạo ra sản phẩm mới"
+    ],
+    answer: 1,
+    explanation: "CNXH không hướng đến nghèo khổ. Mục tiêu tối thượng của CNXH là xây dựng một nền sản xuất hiện đại, giải phóng lực lượng sản xuất ở trình độ rất cao để đem lại đời sống ấm no, hạnh phúc trọn vẹn cho nhân dân."
+  },
+  {
+    question: "Việt Nam phát triển nền 'Kinh tế thị trường định hướng XHCN' nhằm mục đích lớn nhất là gì?",
+    options: [
+      "Từng bước chuyển hẳn sang con đường tư bản chủ nghĩa hoàn toàn",
+      "Giải phóng sức sản xuất, tận dụng ưu thế thị trường để xây dựng cơ sở vật chất cho CNXH",
+      "Khuyến khích các tập đoàn nước ngoài độc quyền hóa nền kinh tế quốc gia",
+      "Xóa bỏ vai trò quản lý vĩ mô của Nhà nước pháp quyền xã hội chủ nghĩa"
+    ],
+    answer: 1,
+    explanation: "Kinh tế thị trường định hướng XHCN là mô hình sáng tạo của Việt Nam, sử dụng cơ chế thị trường làm công cụ thúc đẩy sản xuất nhanh chóng, tạo nền tảng vật chất kỹ thuật vững mạnh cho chủ nghĩa xã hội."
+  },
+  {
+    question: "Quan niệm cho rằng CNXH là 'cào bằng' thu nhập (chia đều lương bất chấp đóng góp) thực chất đi ngược lại với học thuyết nào?",
+    options: [
+      "Học thuyết phân phối theo lao động của chủ nghĩa xã hội khoa học",
+      "Học thuyết kinh tế cổ điển của Adam Smith về bàn tay vô hình",
+      "Chế độ bao cấp tạm thời trong thời kỳ chiến tranh",
+      "Hệ thống thuế khóa phong kiến thời trung cổ"
     ],
     answer: 0,
+    explanation: "Sự cào bằng là biểu hiện của chủ nghĩa bình quân thô sơ, phản khoa học. CNXH khoa học kiên quyết bác bỏ sự cào bằng này vì nó triệt tiêu động lực và không phản ánh đúng giá trị cống hiến thực tế."
   },
+
+  // --- HIỂU LẦM 3: TRIỆT TIÊU DÂN CHỦ ---
   {
-    question:
-      '"Sợi chỉ đỏ" xuyên suốt toàn bộ tư tưởng Hồ Chí Minh và con đường cách mạng Việt Nam là gì?',
+    question: "Bản chất và mục tiêu tối cao của nền dân chủ xã hội chủ nghĩa là gì?",
     options: [
-      'Giải phóng dân tộc gắn liền với phát triển kinh tế thị trường.',
-      'Độc lập dân tộc gắn liền với chủ nghĩa xã hội.',
-      'Kết hợp sức mạnh dân tộc với sức mạnh của các cường quốc.',
-      'Đấu tranh giai cấp để xóa bỏ nghèo nàn và lạc hậu.',
+      "Quyền lực thuộc về một nhóm tinh hoa chính trị ưu tú trong xã hội",
+      "Tất cả quyền lực nhà nước thuộc về nhân dân, bảo đảm quyền làm chủ thực sự của đa số",
+      "Sự tự do tuyệt đối không cần hiến pháp hay kỷ cương pháp luật",
+      "Sao chép nguyên bản mô hình đa đảng cạnh tranh kiểu tư bản phương Tây"
     ],
     answer: 1,
+    explanation: "Dân chủ XHCN là nền dân chủ sâu sắc nhất, rộng rãi nhất cho tuyệt đại đa số nhân dân lao động. Ở đây, người dân là chủ thể quyền lực thực tế trên mọi phương diện đời sống xã hội."
   },
   {
-    question:
-      'Tại sao Hồ Chí Minh cho rằng thời kỳ quá độ là cuộc biến đổi sâu sắc nhất, khó khăn nhất và phức tạp nhất?',
+    question: "Tại Việt Nam, phương châm dân chủ nào thể hiện sâu sắc nhất quyền làm chủ trực tiếp và quyền thụ hưởng của nhân dân?",
     options: [
-      'Vì chúng ta thiếu vốn và công nghệ hiện đại.',
-      'Vì các thế lực thù địch luôn tìm cách phá hoại công cuộc xây dựng.',
-      'Vì phải thay đổi triệt để nếp sống, thói quen và thành kiến gốc rễ hàng ngàn năm.',
-      'Vì nhân dân chưa hiểu rõ về mục tiêu của chủ nghĩa xã hội.',
+      "Dân biết, dân bàn, dân làm, dân chịu phạt trước pháp luật",
+      "Dân biết, dân bàn, dân làm, dân kiểm tra, dân giám sát, dân thụ hưởng",
+      "Đảng quyết định, Nhà nước thi hành, Dân tuân theo vô điều kiện",
+      "Dân làm thuê, Nhà nước quản lý, Doanh nghiệp tư nhân thụ hưởng"
     ],
-    answer: 2,
+    answer: 1,
+    explanation: "Phương châm 'Dân biết... dân thụ hưởng' đặt người dân làm trung tâm của mọi chính sách, bảo đảm thành quả phát triển kinh tế - xã hội quay lại phục vụ trực tiếp cho chất lượng cuộc sống của dân."
   },
   {
-    question:
-      'Hồ Chí Minh khẳng định: “Nếu nước độc lập mà dân không hưởng hạnh phúc tự do, thì độc lập cũng...”',
+    question: "Nhà nước pháp quyền XHCN Việt Nam có đặc điểm cốt lõi nào phân biệt rõ ràng với nhà nước pháp quyền tư bản chủ nghĩa?",
     options: [
-      'Chỉ là hình thức bên ngoài.',
-      'Cần phải xem xét lại con đường đi.',
-      'Chẳng có nghĩa lý gì.',
-      'Không thể bền vững lâu dài.',
+      "Quyền lực tối cao thuộc về các tập đoàn tài chính lớn",
+      "Là nhà nước của nhân dân, do nhân dân, vì nhân dân dưới sự lãnh đạo của Đảng Cộng sản",
+      "Chỉ sử dụng mệnh lệnh hành chính thay cho pháp luật để quản lý",
+      "Nhà nước có quyền đứng trên Hiến pháp và lợi ích tối cao của dân tộc"
     ],
-    answer: 2,
+    answer: 1,
+    explanation: "Nhà nước pháp quyền XHCN Việt Nam mang tính nhân dân sâu sắc, được xây dựng để bảo vệ quyền lợi hợp pháp của nhân dân lao động, thay vì bảo vệ đặc quyền cho nhóm thiểu số nhà tư bản tài phiệt."
+  },
+
+  // --- HIỂU LẦM 4: KHÔNG TƯỞNG & THẤT BẠI HOÀN TOÀN ---
+  {
+    question: "Sự sụp đổ của mô hình chủ nghĩa xã hội ở Liên Xô và Đông Âu năm 1991 phản ánh điều gì về mặt lý luận?",
+    options: [
+      "Sự thất bại mang tính quy luật tất yếu của lý tưởng chủ nghĩa xã hội",
+      "Sự sụp đổ của một mô hình giáo điều, trì trệ, chậm cải cách, chứ không phải bản chất CNXH",
+      "Sự lỗi thời và sai lầm hoàn toàn của toàn bộ học thuyết Mác-Lênin",
+      "Bằng chứng cho thấy chủ nghĩa tư bản là nấc thang phát triển cuối cùng của nhân loại"
+    ],
+    answer: 1,
+    explanation: "Liên Xô sụp đổ là sự đổ vỡ của một mô hình tổ chức cụ thể bị xơ cứng, giáo điều và mắc sai lầm trong phương pháp. Đó là bài học đắt giá để các nước XHCN đổi mới, cải cách sáng tạo và thích ứng mạnh mẽ."
   },
   {
-    question:
-      'Trong thời kỳ quá độ, Hồ Chí Minh xác định nhiệm vụ trọng tâm nhất về kinh tế là gì?',
+    question: "Thành tựu to lớn mang tính lịch sử của công cuộc Đổi mới ở Việt Nam từ năm 1986 đến nay chứng minh điều gì?",
     options: [
-      'Xây dựng nền tảng vật chất và kỹ thuật của chủ nghĩa xã hội.',
-      'Ưu tiên phát triển các ngành dịch vụ và du lịch.',
-      'Mở cửa hoàn toàn thị trường để thu hút vốn đầu tư nước ngoài.',
-      'Tập trung vào việc cải tạo tư tưởng cho những người sản xuất nhỏ.',
+      "Sự kiên định con đường lên CNXH với cách làm sáng tạo, phù hợp thực tiễn là đúng đắn",
+      "Việt Nam đang dần từ bỏ định hướng xã hội chủ nghĩa để theo tư bản chủ nghĩa",
+      "Sự phát triển kinh tế của nước ta hoàn toàn nhờ vào viện trợ không hoàn lại",
+      "Nền kinh tế Việt Nam đang rơi vào trạng thái bế tắc và kém phát triển"
     ],
     answer: 0,
+    explanation: "Từ một nước nghèo đói bị bao vây cấm vận, Việt Nam đã vươn lên thành quốc gia đang phát triển năng động, xóa đói giảm nghèo thần kỳ. Điều này minh chứng sức sống mãnh liệt của CNXH vận dụng sáng tạo."
   },
   {
-    question: 'Theo Hồ Chí Minh, động lực quan trọng nhất của chủ nghĩa xã hội là gì?',
+    question: "Đâu là minh chứng rõ nhất thể hiện giá trị nhân văn và tính ưu việt của chế độ XHCN Việt Nam trong những giai đoạn khó khăn (như đại dịch COVID-19)?",
     options: [
-      'Tiền vốn và tài nguyên thiên nhiên.',
-      'Con người, trước hết là nhân dân lao động.',
-      'Khoa học kỹ thuật và máy móc hiện đại.',
-      'Sự lãnh đạo tuyệt đối của các chuyên gia công nghệ.',
+      "Chấp nhận hy sinh an sinh của người dân để ưu tiên bảo vệ tuyệt đối lợi nhuận kinh tế",
+      "Đặt tính mạng, sức khỏe nhân dân lên trên hết, huy động toàn lực đùm bọc không bỏ ai lại phía sau",
+      "Tự do hóa hoàn toàn dịch vụ y tế để người nghèo tự chi trả mọi chi phí điều trị",
+      "Ngừng giao thương và đóng cửa tuyệt đối đối ngoại với toàn thế giới"
     ],
     answer: 1,
+    explanation: "Sự chung tay của cả hệ thống chính trị, tinh thần đoàn kết đồng bào và chính sách đặt an toàn của dân lên trên lợi nhuận kinh tế là minh chứng sống động nhất cho bản chất tốt đẹp nhân văn của CNXH Việt Nam."
   },
+
+  // --- HIỂU LẦM 5: ĐỐI LẬP TUYỆT ĐỐI VỚI CNTB ---
   {
-    question: 'Điều kiện tiên quyết để bảo đảm độc lập dân tộc gắn liền với CNXH ở Việt Nam là gì?',
+    question: "V.I. Lênin từng khẳng định chủ nghĩa xã hội phải kế thừa những di sản nào của chủ nghĩa tư bản để xây dựng thành công xã hội mới?",
     options: [
-      'Có sự ủng hộ từ cộng đồng quốc tế.',
-      'Phải bảo đảm vai trò lãnh đạo duy nhất của Đảng Cộng sản.',
-      'Phải có nền kinh tế phát triển ngang tầm thế giới.',
-      'Phải thực hiện chính sách ngoại giao đa phương hóa.',
+      "Xóa bỏ hoàn toàn mọi thành tựu công nghệ và di sản văn hóa cũ",
+      "Kế thừa toàn bộ tinh hoa văn hóa, thành tựu khoa học kỹ thuật và nghệ thuật quản lý tiên tiến",
+      "Kế thừa phương thức bóc lột và áp bức lao động làm thuê cốt lõi",
+      "Kế thừa chế độ tư hữu cực đoan đối với các tư liệu sản xuất chiến lược"
     ],
     answer: 1,
+    explanation: "CNXH không ra đời từ chân không, mà là sự phủ định biện chứng đối với CNTB. Nó kế thừa toàn bộ di sản khoa học kỹ thuật, công nghệ và văn minh quản lý mà nhân loại tạo ra để xoay trục phục vụ con người."
   },
   {
-    question:
-      'Nguyên tắc "Dĩ bất biến, ứng vạn biến" của Hồ Chí Minh hiện nay được vận dụng trong bối cảnh AI như thế nào?',
+    question: "Tại sao nói 'Kinh tế thị trường' không phải là sản phẩm độc quyền của chủ nghĩa tư bản?",
     options: [
-      'Kiên định giá trị nhân văn (bất biến), linh hoạt sử dụng công nghệ (vạn biến).',
-      'Giữ nguyên các phương pháp giảng dạy truyền thống không thay đổi.',
-      'Tuyệt đối không thay đổi mục tiêu dù công cụ công nghệ có thay đổi.',
-      'Chạy theo mọi xu hướng công nghệ mới nhất để không bị bỏ lại phía sau.',
+      "Vì kinh tế thị trường là thành tựu phát triển chung của văn minh nhân loại, có trước CNTB",
+      "Vì kinh tế thị trường được phát minh đầu tiên bởi các nhà triết học xã hội chủ nghĩa",
+      "Vì kinh tế thị trường chỉ có thể xuất hiện sau khi chế độ tư bản sụp đổ hoàn toàn",
+      "Vì kinh tế thị trường là cơ chế tự phát không tuân theo bất kỳ quy luật vận hành nào"
     ],
     answer: 0,
+    explanation: "Kinh tế thị trường là phương thức trao đổi, phân bổ nguồn lực đã có lịch sử lâu đời. CNXH hoàn toàn kế thừa và hướng dẫn cơ chế này để phát triển sản xuất, hướng tới công bằng xã hội."
   },
   {
-    question: 'Theo giáo trình, chủ nghĩa xã hội có khả năng bảo vệ độc lập dân tộc vững chắc vì:',
+    question: "Mối quan hệ biện chứng giữa chủ nghĩa xã hội và chủ nghĩa tư bản được thể hiện như thế nào trong tiến trình lịch sử?",
     options: [
-      'It giúp chúng ta có vũ khí hiện đại nhất thế giới.',
-      'It tạo ra sức mạnh tự thân về kinh tế, chính trị, văn hóa, quốc phòng.',
-      'It nhận được sự bảo trợ quân sự từ các nước lớn.',
-      'It xóa bỏ hoàn toàn mọi mâu thuẫn giữa các dân tộc trên thế giới.',
+      "Sự phủ định sạch trơn, hủy diệt hoàn toàn và không tiếp thu bất kỳ giá trị tiến bộ nào",
+      "CNXH phủ định bản chất bóc lột của CNTB nhưng tiếp thu có chọn lọc các thành tựu văn minh của nó",
+      "CNXH hoàn toàn phụ thuộc và buộc phải bắt chước mọi cơ chế kinh tế chính trị tư bản",
+      "Hai hình thái kinh tế xã hội hoàn toàn biệt lập, không có sự giao lưu hay học hỏi biện chứng"
     ],
     answer: 1,
-  },
-  {
-    question: 'Hồ Chí Minh quan niệm CNXH là một xã hội do ai làm chủ?',
-    options: [
-      'Tầng lớp trí thức và chuyên gia.',
-      'Nhà nước và các tổ chức chính trị.',
-      'Nhân dân lao động.',
-      'Các tập đoàn kinh tế nhà nước.',
-    ],
-    answer: 2,
-  },
-  {
-    question: '"Bẫy định hướng" trong thời đại số mà chúng ta cần tránh là gì?',
-    options: [
-      'Không biết cách sử dụng các ứng dụng AI.',
-      'Nhầm lẫn giữa công cụ (AI, tiền bạc) và mục tiêu (hạnh phúc, tự do).',
-      'Chỉ tập trung vào việc học ngoại ngữ mà quên học công nghệ.',
-      'Quá tin tưởng vào các thông tin trên mạng xã hội.',
-    ],
-    answer: 1,
-  },
-  {
-    question: 'Theo Hồ Chí Minh, muốn xây dựng chủ nghĩa xã hội, trước hết cần có cái gì?',
-    options: [
-      'Những con người xã hội chủ nghĩa.',
-      'Một nguồn vốn đầu tư khổng lồ.',
-      'Hệ thống luật pháp chặt chẽ và nghiêm khắc.',
-      'Các khu công nghiệp hiện đại.',
-    ],
-    answer: 0,
-  },
-  {
-    question: 'Một trong những đặc trưng của CNXH về mặt chính trị là gì?',
-    options: [
-      'Mọi quyền lực thuộc về các chuyên gia kỹ thuật.',
-      'Xã hội có chế độ dân chủ, quyền lực thuộc về nhân dân.',
-      'Nhà nước quản lý mọi hoạt động riêng tư của công dân bằng AI.',
-      'Xóa bỏ hoàn toàn các tổ chức đoàn thể chính trị - xã hội.',
-    ],
-    answer: 1,
-  },
-  {
-    question:
-      'Hồ Chí Minh nhắc nhở việc học tập kinh nghiệm các nước anh em trong xây dựng CNXH phải như thế nào?',
-    options: [
-      'Phải rập khuôn máy móc để đảm bảo tính thống nhất.',
-      'Chỉ học tập những gì dễ thực hiện nhất.',
-      'Học tập nhưng không được áp dụng máy móc, phải vận dụng sáng tạo.',
-      'Không cần học tập vì hoàn cảnh Việt Nam là duy nhất.',
-    ],
-    answer: 2,
-  },
-  {
-    question: 'Trong thời kỳ quá độ, loại giặc nào được Hồ Chí Minh gọi là "giặc nội xâm"?',
-    options: [
-      'Những người có tư tưởng thân phương Tây.',
-      'Tham ô, lãng phí và bệnh quan liêu.',
-      'Những người lười lao động trong các hợp tác xã.',
-      'Các thành phần kinh tế tư nhân còn tồn tại.',
-    ],
-    answer: 1,
-  },
-  {
-    question: 'Để giữ vững độc lập trong hội nhập, chúng ta cần kết hợp sức mạnh nào?',
-    options: [
-      'Sức mạnh dân tộc và sức mạnh thời đại.',
-      'Sức mạnh quân sự và sức mạnh tài chính cá nhân.',
-      'Sức mạnh của công nghệ AI và tài nguyên đất nước.',
-      'Sức mạnh của đa số nhân dân và sự hỗ trợ của các tổ chức quốc tế.',
-    ],
-    answer: 0,
-  },
-  {
-    question: 'Mục tiêu cao nhất của CNXH theo Hồ Chí Minh là nâng cao đời sống của ai?',
-    options: [
-      'Các cán bộ và đảng viên gương mẫu.',
-      'Tất cả mọi tầng lớp nhân dân.',
-      'Những người có trình độ chuyên môn cao.',
-      'Những người làm việc trong các ngành công nghệ cao.',
-    ],
-    answer: 1,
-  },
-  {
-    question: '"Xây" đi đôi với "Chống" trong đạo đức cách mạng thời kỳ quá độ có ý nghĩa gì?',
-    options: [
-      'Chỉ tập trung vào việc xử phạt những người vi phạm pháp luật.',
-      'Ưu tiên việc xây dựng các công trình kinh tế hơn là giáo dục con người.',
-      'Bồi dưỡng những giá trị tốt đẹp đồng thời loại bỏ các thói hư, tật xấu cũ.',
-      'Chống lại mọi sự can thiệp của các yếu tố văn hóa bên ngoài.',
-    ],
-    answer: 2,
-  },
-  {
-    question: 'CNXH trong tầm nhìn Hồ Chí Minh hướng tới giải phóng đối tượng nào?',
-    options: [
-      'Giải phóng dân tộc.',
-      'Giải phóng giai cấp.',
-      'Giải phóng xã hội.',
-      'Cả ba phương án trên đều đúng.',
-    ],
-    answer: 3,
-  },
-  {
-    question: 'Đâu là "Kim chỉ nam" để cá nhân không lạc lối trước làn sóng công nghệ?',
-    options: [
-      'Tư tưởng Hồ Chí Minh về các giá trị nhân văn bền vững.',
-      'Các hướng dẫn sử dụng công cụ của các tập đoàn công nghệ lớn.',
-      'Sự định hướng của các thuật toán dự báo nghề nghiệp.',
-      'Việc chạy theo những kỹ năng có thu nhập cao nhất hiện nay.',
-    ],
-    answer: 0,
-  },
-  {
-    question: 'Trong CNXH, văn hóa đóng vai trò là:',
-    options: [
-      'Mục tiêu và động lực của sự nghiệp cách mạng.',
-      'Một lĩnh vực giải trí sau giờ lao động sản xuất.',
-      'Công cụ để quảng bá hình ảnh quốc gia ra thế giới.',
-      'Yếu tố thứ yếu so với phát triển kinh tế.',
-    ],
-    answer: 0,
-  },
-  {
-    question: 'Việc phát huy dân chủ trong giai đoạn hiện nay cần thực hiện phương châm nào?',
-    options: [
-      'Dân làm, dân chịu trách nhiệm trước pháp luật.',
-      'Dân biết, dân bàn, dân làm, dân kiểm tra.',
-      'Nhà nước làm thay cho dân để đảm bảo tiến độ.',
-      'Chỉ trưng cầu ý kiến dân đối với các vấn đề kinh tế.',
-    ],
-    answer: 1,
-  },
-  {
-    question: 'Để chuẩn bị cho CNXH, Hồ Chí Minh nhấn mạnh việc giáo dục thanh niên phải có cả:',
-    options: [
-      'Đức và Tài.',
-      'Sức khỏe và Ngoại ngữ.',
-      'Kỹ năng AI và Tư duy phản biện.',
-      'Kinh nghiệm thực tế và Bằng cấp quốc tế.',
-    ],
-    answer: 0,
-  },
-  {
-    question: 'Tại sao nói CNXH là con đường duy nhất để giải phóng dân tộc triệt để?',
-    options: [
-      'Vì nó giúp dân tộc ta trở nên giàu có nhất thế giới.',
-      'Vì nó xóa bỏ tận gốc sự áp bức, bóc lột của người đối với người.',
-      'Vì nó đảm bảo mọi người dân đều có máy tính sử dụng.',
-      'Vì nó giúp chúng ta có quan hệ tốt với tất cả các cường quốc.',
-    ],
-    answer: 1,
-  },
-  {
-    question: 'Nhiệm vụ văn hóa trong thời kỳ quá độ được Hồ Chí Minh xác định là:',
-    options: [
-      'Xóa bỏ hoàn toàn các tôn giáo và tín ngưỡng truyền thống.',
-      'Triệt để tẩy trừ các di tích thực dân và ảnh hưởng nô dịch.',
-      'Chỉ tập trung vào việc phổ cập các kiến thức về công nghệ số.',
-      'Giữ nguyên mọi tập tục cũ để bảo tồn bản sắc văn hóa.',
-    ],
-    answer: 1,
-  },
-  {
-    question: 'Theo Hồ Chí Minh, CNXH có nền kinh tế phát triển cao dựa trên:',
-    options: [
-      'Lực lượng sản xuất hiện đại và chế độ công hữu về tư liệu sản xuất.',
-      'Việc tư hữu hóa toàn bộ các doanh nghiệp nhà nước.',
-      'Sự phát triển tự phát của các thành phần kinh tế tư nhân.',
-      'Chỉ tập trung vào các ngành thủ công nghiệp truyền thống.',
-    ],
-    answer: 0,
-  },
-  {
-    question: '"Tâm bất biến giữa dòng đời vạn biến" trong thời đại AI có nghĩa là:',
-    options: [
-      'Không chấp nhận sự thay đổi của công nghệ hiện đại.',
-      'Giữ vững đạo đức, lý tưởng giữa sự thay đổi của công cụ và kỹ năng.',
-      'Ngừng việc học tập để giữ cho tâm hồn được bình yên.',
-      'Chỉ tin tưởng vào những kinh nghiệm đã có từ quá khứ.',
-    ],
-    answer: 1,
-  },
-  {
-    question: 'Mục tiêu chung của độc lập dân tộc và CNXH đều là:',
-    options: [
-      'Mang lại tự do, ấm no và hạnh phúc cho con người.',
-      'Trở thành một cường quốc quân sự trong khu vực.',
-      'Phát triển công nghệ AI vượt qua các nước tư bản.',
-      'Xây dựng một xã hội chỉ có sự đồng nhất về tư tưởng.',
-    ],
-    answer: 0,
-  },
-  {
-    question:
-      'Việc vận dụng tư tưởng Hồ Chí Minh hiện nay đòi hỏi chúng ta phải chống lại biểu hiện nào?',
-    options: [
-      'Sự suy thoái về tư tưởng chính trị và đạo đức, lối sống.',
-      'Chủ nghĩa cá nhân và thói quan liêu, hách dịch nhân dân.',
-      'Sự thờ ơ với các vấn đề vận mệnh của đất nước.',
-      'Tất cả các phương án trên.',
-    ],
-    answer: 3,
-  },
-]
+    explanation: "CNXH thực hiện phủ định biện chứng đối với CNTB: xóa bỏ sự bất công, áp bức và bóc lột giai cấp; đồng thời trân trọng, kế thừa và phát triển lên tầm cao mới những thành tựu dân chủ, khoa học và văn hóa nhân loại."
+  }
+];

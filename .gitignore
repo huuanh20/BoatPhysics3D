@@ -11,3 +11,6 @@ __pycache__/
 .env
 vsk/
 .vercel
+dist/
+frontend/dist/
+backend/game.db

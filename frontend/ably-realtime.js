@@ -1,5 +1,5 @@
 export const CHANNEL_NAME = "boat:global";
-export const PUBLISH_INTERVAL_MS = 75;
+export const PUBLISH_INTERVAL_MS = 120; // Increased from 75ms to 120ms to reduce network traffic congestion by ~40%
 
 export function createPlayerId() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
