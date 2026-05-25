@@ -26,6 +26,7 @@ const adminStatusPanel = document.getElementById("admin-status-panel");
 const statusPlayersList = document.getElementById("status-players-list");
 const podiumScreen = document.getElementById("podium-screen");
 const pauseGameBtn = document.getElementById("pause-game-btn");
+const forceEndBtn = document.getElementById("force-end-btn");
 const adminEventLogPanel = document.getElementById("admin-event-log-panel");
 const logEventsList = document.getElementById("log-events-list");
 const adminQuestionPanel = document.getElementById("admin-question-panel");
@@ -2177,6 +2178,36 @@ async function endGameAsAdmin() {
     onGameOver({ winners: adminWinners, players });
 }
 
+async function forceEndGameAsAdmin() {
+    if (!gameStarted) return;
+    
+    const playersList = Object.values(activePlayers);
+    
+    // Sort players by progress descending
+    playersList.sort((a, b) => (b.progress || 0) - (a.progress || 0));
+    
+    const raceTime = gameStartTime > 0 ? (Date.now() - gameStartTime) / 1000 : 30.0;
+    
+    // Fill remaining winner slots (up to 3) based on current progress
+    for (const p of playersList) {
+        if (adminWinners.length >= Math.max(1, Math.min(3, playersList.length))) {
+            break;
+        }
+        if (!adminWinners.find(w => w.sid === p.sid)) {
+            adminWinners.push({
+                sid: p.sid,
+                name: p.name || "Player",
+                color: p.color || "#fff",
+                rank: adminWinners.length + 1,
+                race_time: raceTime,
+            });
+            p.rank = adminWinners.length;
+        }
+    }
+    
+    await endGameAsAdmin();
+}
+
 function publishAdmin(type) {
     if (!ablyChannel) return;
     ablyChannel.publish("admin", { type, t: Date.now() });
@@ -2379,6 +2410,15 @@ if (pauseGameBtn) {
     });
 }
 
+if (forceEndBtn) {
+    forceEndBtn.addEventListener("click", async () => {
+        if (!gameStarted) return;
+        if (confirm("Bạn có chắc chắn muốn KẾT THÚC cuộc đua ngay bây giờ không? Hệ thống sẽ chọn ra 3 người chơi có tiến độ cao nhất làm người chiến thắng!")) {
+            await forceEndGameAsAdmin();
+        }
+    });
+}
+
 function onPauseStatus(data) {
     if (pauseGameBtn) {
         if (data.paused) {
@@ -2439,6 +2479,10 @@ function onGameReset() {
         pauseGameBtn.style.display = "none";
         pauseGameBtn.innerText = "TẠM DỪNG";
         pauseGameBtn.classList.remove("paused");
+    }
+    
+    if (forceEndBtn) {
+        forceEndBtn.style.display = "none";
     }
     
     // Reset camera back to cinematic isometric 3D perspective
@@ -2571,6 +2615,10 @@ function onGameStarted() {
         pauseGameBtn.innerText = "TẠM DỪNG";
         pauseGameBtn.classList.remove("paused");
     }
+    
+    if (forceEndBtn) {
+        forceEndBtn.style.display = "block";
+    }
 
     sfxHorn.play().catch(() => {});
     
@@ -2664,6 +2712,10 @@ function onGameOver(data) {
 
     if (pauseGameBtn) {
         pauseGameBtn.style.display = "none";
+    }
+    
+    if (forceEndBtn) {
+        forceEndBtn.style.display = "none";
     }
 
     // Stop background music
