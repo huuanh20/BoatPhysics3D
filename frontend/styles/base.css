@@ -1,0 +1,7 @@
+@import "../style.css";
+
+/* Base core layouts and root styles overrides */
+:root {
+    --primary-red: #e74c3c;
+    --navy-dark: #0f1d24;
+}

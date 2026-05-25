@@ -10,7 +10,7 @@ import {
 } from "./ably-realtime.js";
 import { QUESTIONS } from "./questions.js";
 
-const TARGET_CORRECT_ANSWERS = 15;
+const TARGET_CORRECT_ANSWERS = 20;
 
 let ablyChannel = null;
 let myClientId = null;
@@ -20,30 +20,112 @@ let quizQueue = [];
 let quizQueueIdx = 0;
 let quizScore = 0;
 let lastPosPublish = 0;
+let lastPublishedZ = -9999;
+let lastPublishedProgress = -1;
+
+function savePlayerStateToLocalStorage() {
+    if (!myPlayer) return;
+    localStorage.setItem("boat_game_started", gameStarted);
+    localStorage.setItem("boat_player_score", quizScore);
+    localStorage.setItem("boat_player_progress", currentProgress);
+    localStorage.setItem("boat_player_streak", currentStreak);
+    localStorage.setItem("boat_player_inventory", JSON.stringify(inventory));
+    localStorage.setItem("boat_player_shield_active", isShieldActive);
+}
+
+function clearPlayerStateFromLocalStorage() {
+    localStorage.removeItem("boat_game_started");
+    localStorage.removeItem("boat_player_score");
+    localStorage.removeItem("boat_player_progress");
+    localStorage.removeItem("boat_player_streak");
+    localStorage.removeItem("boat_player_inventory");
+    localStorage.removeItem("boat_player_shield_active");
+}
 
 // Upgraded Streak & Support Items State
 let currentStreak = 0;
 let inventory = { radar: 1, boost: 0, shield: 0 };
 let isShieldActive = false;
 
+// ==========================================
+// 🚀 STAGE ABSTRACTION & STAGE CONFIGURATION
+// ==========================================
+export const STAGE_1 = 0; // Bản chất CNXH (Q1 - Q7)
+export const STAGE_2 = 1; // Thời kỳ quá độ (Q8 - Q13)
+export const STAGE_3 = 2; // Việt Nam đi lên CNXH (Q14 - Q20)
+
+export function getStageFromQuestionCount(correctAnswers) {
+    if (correctAnswers < 7) {
+        return STAGE_1;
+    } else if (correctAnswers < 13) {
+        return STAGE_2;
+    } else {
+        return STAGE_3;
+    }
+}
+
+const COLOR_ZONE1 = new THREE.Color(0x004e5a);
+const COLOR_ZONE2 = new THREE.Color(0x0f1d24);
+const COLOR_ZONE3 = new THREE.Color(0x005a4e);
+
+export function getEnvironmentFromStage(stage) {
+    switch (stage) {
+        case STAGE_1:
+            return {
+                waterColor: COLOR_ZONE1,
+                waveAmplitude: 0.5,
+                waveFrequency: 1.0,
+                windSpeed: 0.1,
+                name: "BẢN CHẤT CHỦ NGHĨA XÃ HỘI"
+            };
+        case STAGE_2:
+            return {
+                waterColor: COLOR_ZONE2,
+                waveAmplitude: 2.6,
+                waveFrequency: 3.5,
+                windSpeed: 0.45,
+                name: "THỜI KỲ QUÁ ĐỘ LÊN CHỦ NGHĨA XÃ HỘI"
+            };
+        case STAGE_3:
+            return {
+                waterColor: COLOR_ZONE3,
+                waveAmplitude: 0.4,
+                waveFrequency: 0.8,
+                windSpeed: 0.08,
+                name: "VIỆT NAM VÀ ĐƯỜNG LÊN CNXH"
+            };
+        default:
+            return {
+                waterColor: COLOR_ZONE1,
+                waveAmplitude: 0.5,
+                waveFrequency: 1.0,
+                windSpeed: 0.1,
+                name: "BẢN CHẤT CHỦ NGHĨA XÃ HỘI"
+            };
+    }
+}
+
+// Zone transition state with Hysteresis
+let lastAppliedStage = -1;
+const ZONE_MARGIN = 10; // Hysteresis margin of 10 units in Three.js coordinates
+
+// Pre-allocated reusable Three.js objects to avoid garbage collection spikes inside the animation loop
+const cameraLookTarget = new THREE.Vector3();
+
 // --- GATE & EXPLANATION CONFIGURATION ---
-const gateZPositions = [140, -20, -180, -340, -500];
+const gateZPositions = [120, -160, -500];
 const gateTitles = [
-    "CỔNG 1: HIỂU LẦM SỞ HỮU CÁ NHÂN",
-    "CỔNG 2: HIỂU LẦM MÔ HÌNH CÀO BẰNG",
-    "CỔNG 3: HIỂU LẦM TRIỆT TIÊU DÂN CHỦ",
-    "CỔNG 4: HIỂU LẦM KHÔNG TƯỞNG & THẤT BẠI",
-    "CỔNG 5: HIỂU LẦM ĐỐI LẬP TUYỆT ĐỐI"
+    "CỔNG 1: BẢN CHẤT CHỦ NGHĨA XÃ HỘI",
+    "CỔNG 2: THỜI KỲ QUÁ ĐỘ LÊN CHỦ NGHĨA XÃ HỘI",
+    "CỔNG 3: VIỆT NAM VÀ ĐƯỜNG LÊN CNXH"
 ];
 const gateSubtitles = [
-    "Sự thật: CNXH bảo vệ sở hữu cá nhân và tôn trọng thành quả lao động!",
-    "Sự thật: Phân phối theo lao động - làm nhiều hưởng nhiều, làm ít hưởng ít!",
-    "Sự thật: Nền dân chủ XHCN thuộc về tuyệt đại đa số nhân dân lao động!",
-    "Sự thật: Sự sụp đổ của một mô hình giáo điều không phải là thất bại của lý tưởng!",
-    "Sự thật: Kế thừa và phát triển tinh hoa văn minh nhân loại của CNTB!"
+    "Sự thật: Giải phóng giai cấp, giải phóng xã hội, giải phóng con người!",
+    "Sự thật: Sự tồn tại đan xen giữa xã hội cũ và nhân tố xã hội chủ nghĩa mới!",
+    "Sự thật: Bỏ qua chế độ tư bản chủ nghĩa để đi lên XHCN một cách độc lập, sáng tạo!"
 ];
 let activeGates = [];
-let passedGates = [false, false, false, false, false];
+let passedGates = [false, false, false];
 let pendingNextQuestionData = null;
 
 // Dynamically create Gate Flash Overlay on startup
@@ -85,7 +167,7 @@ function playNationalAnthem() {
     if (bgmGameplay) bgmGameplay.pause();
 
     if (!sfxAnthem) {
-        sfxAnthem = new Audio('/vietnam_anthem.mp3');
+        sfxAnthem = new Audio('/assets/audio/vietnam_anthem.mp3');
         sfxAnthem.volume = 0.7;
     }
     sfxAnthem.currentTime = 0;
@@ -278,7 +360,7 @@ function triggerSFX(type) {
 let myPlayer = null;
 let currentProgress = 0.0;
 let targetZ = 300;
-let totalQuestions = 15; // Set default to 15
+let totalQuestions = 20; // Set default to 20
 const START_Z = 300;
 const FINISH_Z = -500;
 const TOTAL_DIST = START_Z - FINISH_Z; // 800 units
@@ -406,14 +488,24 @@ function init3D() {
     const container = document.getElementById("canvas-container");
     
     // Renderer
-    renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // Capped at 1.5 for high performance on Retina/High-DPI
+    renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.2)); // Capped at 1.2 for ultra-smooth performance on Retina/High-DPI and projectors
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.8;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFShadowMap; // Switched to PCFShadowMap from PCFSoftShadowMap for better GPU performance
     container.appendChild(renderer.domElement);
+
+    // WebGL Context Loss Recovery
+    renderer.domElement.addEventListener("webglcontextlost", (event) => {
+        event.preventDefault();
+        console.warn("WebGL Context lost! Attempting recovery...");
+    }, false);
+    renderer.domElement.addEventListener("webglcontextrestored", () => {
+        console.log("WebGL Context restored successfully!");
+        init3D(); // Reinitialize
+    }, false);
 
     // Scene
     scene = new THREE.Scene();
@@ -449,7 +541,7 @@ function init3D() {
     water = new Water(waterGeometry, {
         textureWidth: 512,
         textureHeight: 512,
-        waterNormals: new THREE.TextureLoader().load("helpers/waternormals.jpg", (texture) => {
+        waterNormals: new THREE.TextureLoader().load("assets/textures/waternormals.jpg", (texture) => {
             texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
         }),
         sunDirection: new THREE.Vector3(),
@@ -492,7 +584,7 @@ function init3D() {
 
 
     // Load Player's Boat Mesh
-    loader.load("helpers/boat/scene.gltf", (gltf) => {
+    loader.load("assets/models/boat/scene.gltf", (gltf) => {
         boatTemplate = gltf.scene;
         boatMesh = boatTemplate.clone();
         boatMesh.scale.set(3, 3, 3);
@@ -822,7 +914,7 @@ function createWorldScenery(scene) {
 
     /*
     // Load and Clone high-quality 3D Sketchfab Islands
-    loader.load("helpers/tropical_island/scene.gltf", (gltf) => {
+    loader.load("assets/models/tropical_island/scene.gltf", (gltf) => {
         console.log("3D Tropical Island loaded successfully!");
         const islandModel = gltf.scene;
         
@@ -1261,6 +1353,7 @@ function syncCompetitors(playersList) {
             };
 
             const setupRivalBoat = (boat) => {
+                if (!activePlayers[p.sid]) return; // Safe guard against race condition if player disconnects during async GLTF load
                 boat.scale.set(2.5, 2.5, 2.5);
                 const currentZ = START_Z - (activePlayers[p.sid].progress * TOTAL_DIST);
                 boat.position.set(laneX, 24.0, currentZ);
@@ -1291,7 +1384,7 @@ function syncCompetitors(playersList) {
             if (boatTemplate) {
                 setupRivalBoat(boatTemplate.clone());
             } else {
-                loader.load("helpers/boat/scene.gltf", (gltf) => {
+                loader.load("assets/models/boat/scene.gltf", (gltf) => {
                     if (!boatTemplate) boatTemplate = gltf.scene;
                     setupRivalBoat(boatTemplate.clone());
                 });
@@ -1394,6 +1487,46 @@ function animate() {
 
             // CHECK GATE CROSSING
             const currentZ = boatMesh.position.z;
+
+            // CHECK ZONE TRANSITION WITH HYSTERESIS & STAGE ABSTRACTION
+            let targetStage = lastAppliedStage;
+            if (lastAppliedStage === -1) {
+                if (currentZ > 120) targetStage = STAGE_1;
+                else if (currentZ > -160) targetStage = STAGE_2;
+                else targetStage = STAGE_3;
+            } else {
+                if (lastAppliedStage === STAGE_1 && currentZ <= 120 - ZONE_MARGIN) {
+                    targetStage = STAGE_2;
+                } else if (lastAppliedStage === STAGE_2 && currentZ > 120 + ZONE_MARGIN) {
+                    targetStage = STAGE_1;
+                } else if (lastAppliedStage === STAGE_2 && currentZ <= -160 - ZONE_MARGIN) {
+                    targetStage = STAGE_3;
+                } else if (lastAppliedStage === STAGE_3 && currentZ > -160 + ZONE_MARGIN) {
+                    targetStage = STAGE_2;
+                }
+            }
+            
+            if (targetStage !== lastAppliedStage) {
+                lastAppliedStage = targetStage;
+                showFloatingText(`🏞️ TIẾN VÀO: ${getEnvironmentFromStage(targetStage).name}!`);
+            }
+            
+            const env = getEnvironmentFromStage(targetStage);
+            if (water && water.material && water.material.uniforms) {
+                water.material.uniforms["waterColor"].value.lerp(env.waterColor, 0.05 * fpsRatio);
+                
+                // Shader performance target: only update if delta is significant
+                if (Math.abs(boatForces.waveAmplitude - env.waveAmplitude) > 0.01) {
+                    boatForces.waveAmplitude += (env.waveAmplitude - boatForces.waveAmplitude) * 0.05 * fpsRatio;
+                    water.material.uniforms["distortionScale"].value = boatForces.waveAmplitude;
+                }
+                if (Math.abs(boatForces.waveFrequency - env.waveFrequency) > 0.01) {
+                    boatForces.waveFrequency += (env.waveFrequency - boatForces.waveFrequency) * 0.05 * fpsRatio;
+                }
+                
+                boatForces.windForce += (env.windSpeed * 0.5 - boatForces.windForce) * 0.05 * fpsRatio;
+            }
+
             for (let i = 0; i < gateZPositions.length; i++) {
                 if (!passedGates[i] && currentZ <= gateZPositions[i]) {
                     passedGates[i] = true;
@@ -1444,13 +1577,9 @@ function animate() {
                 }
             }
 
-            // Camera looks forward at stable height to eliminate vertical jitter
-            const lookTarget = new THREE.Vector3(
-                myLaneX,
-                26.5, // Stable height (24.0 + 2.5) to keep camera perfectly steady
-                boatMesh.position.z - 100
-            );
-            camera.lookAt(lookTarget);
+            // Camera looks forward at stable height to eliminate vertical jitter (using pre-allocated Vector3 to avoid GC spikes)
+            cameraLookTarget.set(myLaneX, 26.5, boatMesh.position.z - 100);
+            camera.lookAt(cameraLookTarget);
 
             maybePublishPosition();
         }
@@ -1581,22 +1710,36 @@ function animate() {
     }
 }
 
-// LOBBY SELECTION & COLOR PICKER
-const colorButtons = document.querySelectorAll(".color-btn");
-let selectedColor = "#e74c3c"; // Default red
-
-colorButtons.forEach(btn => {
-    btn.addEventListener("click", () => {
-        colorButtons.forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
-        selectedColor = btn.getAttribute("data-color");
-        applyBoatColor(selectedColor); // Apply color in real-time in lobby!
-    });
-});
-
 // JOIN LOBBY ACTION
 const joinBtn = document.getElementById("join-btn");
 const playerNameInput = document.getElementById("player-name");
+
+// LOBBY SELECTION & COLOR PICKER
+const colorButtons = document.querySelectorAll(".color-btn");
+const savedName = localStorage.getItem("boat_player_name");
+const savedColor = localStorage.getItem("boat_player_color");
+
+let selectedColor = savedColor || "#e74c3c"; // Default red
+
+if (savedName && playerNameInput) {
+    playerNameInput.value = savedName;
+}
+
+colorButtons.forEach(btn => {
+    const btnColor = btn.getAttribute("data-color");
+    if (btnColor === selectedColor) {
+        btn.classList.add("active");
+    } else {
+        btn.classList.remove("active");
+    }
+    
+    btn.addEventListener("click", () => {
+        colorButtons.forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        selectedColor = btnColor;
+        applyBoatColor(selectedColor); // Apply color in real-time in lobby!
+    });
+});
 
 if (playerNameInput) {
     playerNameInput.addEventListener("keydown", (e) => {
@@ -1607,23 +1750,44 @@ if (playerNameInput) {
 }
 
 function maybePublishPosition() {
-    if (!ablyChannel || !boatMesh || !myPlayer || gamePaused) return;
+    if (!gameStarted || !ablyChannel || !myPlayer || gamePaused) return;
     const now = performance.now();
     if (now - lastPosPublish < PUBLISH_INTERVAL_MS) return;
-    lastPosPublish = now;
 
-    ablyChannel.publish("pos", {
-        id: myPlayer.id,
-        t: Date.now(),
-        x: boatMesh.position.x,
-        y: boatMesh.position.y,
-        z: boatMesh.position.z,
-        yaw: boatMesh.rotation.y,
-        vx: 0,
-        vz: 0,
-        progress: currentProgress,
-        rank: myPlayer.rank ?? null,
-    });
+    // Use default/fallback position coordinates if boatMesh is not loaded/available (2D WebGL Fallback Mode)
+    const boatX = boatMesh ? boatMesh.position.x : (myPlayer.laneX !== undefined ? myPlayer.laneX : 0);
+    const boatY = boatMesh ? boatMesh.position.y : 24.0;
+    const boatZ = boatMesh ? boatMesh.position.z : (START_Z - (currentProgress * TOTAL_DIST));
+    const boatYaw = boatMesh ? boatMesh.rotation.y : Math.PI * 0.5;
+
+    const zDiff = Math.abs(boatZ - lastPublishedZ);
+    const progDiff = Math.abs(currentProgress - lastPublishedProgress);
+    const timeDiff = now - lastPosPublish;
+
+    if (zDiff < 0.05 && progDiff < 0.001 && timeDiff < 5000) {
+        return;
+    }
+
+    lastPosPublish = now;
+    lastPublishedZ = boatZ;
+    lastPublishedProgress = currentProgress;
+
+    try {
+        ablyChannel.publish("pos", {
+            id: myPlayer.id,
+            t: Date.now(),
+            x: boatX,
+            y: boatY,
+            z: boatZ,
+            yaw: boatYaw,
+            vx: 0,
+            vz: 0,
+            progress: currentProgress,
+            rank: myPlayer.rank ?? null,
+        });
+    } catch (e) {
+        console.error("Failed to publish position to Ably:", e);
+    }
 }
 
 window.activeBots = [];
@@ -1708,6 +1872,7 @@ function handleAdminEvent(data) {
 }
 
 function onGameReset() {
+    clearPlayerStateFromLocalStorage();
     stopNationalAnthem();
     currentProgress = 0.0;
     targetZ = START_Z;
@@ -1799,6 +1964,7 @@ function onGameStarted() {
         bgmGameplay.play().catch(() => {});
     }
 
+    savePlayerStateToLocalStorage();
     sendNextQuestion();
 }
 
@@ -1837,13 +2003,17 @@ function applyNextQuestion(data) {
 
     // Real-time synchronization: publish current question info to main spectator screen
     if (ablyChannel && myPlayer) {
-        ablyChannel.publish("current-question", {
-            playerName: myPlayer.name,
-            color: myPlayer.color,
-            questionNum: questionNum,
-            question_text: data.question_text,
-            options: data.options
-        });
+        try {
+            ablyChannel.publish("current-question", {
+                playerName: myPlayer.name,
+                color: myPlayer.color,
+                questionNum: questionNum,
+                question_text: data.question_text,
+                options: data.options
+            });
+        } catch (e) {
+            console.error("Failed to publish current-question to Ably:", e);
+        }
     }
 }
 
@@ -1885,40 +2055,39 @@ function sendNextQuestion(lastCorrect = null) {
         }
 
         setTimeout(() => {
-            feedbackOverlay.classList.remove("active");
-            
-            // Render the Explanation Card Overlay
-            const lastQIdx = quizQueue[quizQueueIdx - 1];
-            const lastQ = QUESTIONS[lastQIdx];
-            
-            const explanationOverlay = document.getElementById("explanation-overlay");
-            const explanationBadge = document.getElementById("explanation-badge");
-            const explanationChapter = document.getElementById("explanation-chapter");
-            const explanationTitle = document.getElementById("explanation-title");
-            const explanationText = document.getElementById("explanation-text");
-            
-            if (explanationOverlay && lastQ) {
-                const misconceptionIdx = Math.floor(lastQIdx / 3);
-                const misconceptionNames = [
-                    "HIỂU LẦM 1: XÓA BỎ SỞ HỮU CÁ NHÂN",
-                    "HIỂU LẦM 2: MÔ HÌNH CÀO BẰNG",
-                    "HIỂU LẦM 3: TRIỆT TIÊU DÂN CHỦ",
-                    "HIỂU LẦM 4: KHÔNG TƯỞNG & THẤT BẠI",
-                    "HIỂU LẦM 5: ĐỐI LẬP TUYỆT ĐỐI VỚI CNTB"
-                ];
+            try {
+                feedbackOverlay.classList.remove("active");
                 
-                explanationChapter.innerText = misconceptionNames[misconceptionIdx] || "ĐẠI DƯƠNG CHÂN LÝ";
-                explanationTitle.innerText = `PHÁ BỎ HIỂU LẦM: ${lastQ.question}`;
-                explanationText.innerText = lastQ.explanation;
+                // Render the Explanation Card Overlay
+                const lastQIdx = quizQueue[quizQueueIdx - 1];
+                const lastQ = QUESTIONS[lastQIdx];
                 
-                explanationOverlay.style.opacity = "1";
-                explanationOverlay.style.pointerEvents = "auto";
+                const explanationOverlay = document.getElementById("explanation-overlay");
+                const explanationBadge = document.getElementById("explanation-badge");
+                const explanationChapter = document.getElementById("explanation-chapter");
+                const explanationTitle = document.getElementById("explanation-title");
+                const explanationText = document.getElementById("explanation-text");
                 
-                pendingNextQuestionData = nextData;
-            } else {
-                if (finished) {
-                    onVictory({ rank: myPlayer.rank });
+                if (explanationOverlay && lastQ) {
+                    if (explanationChapter) explanationChapter.innerText = lastQ.chapter || "ĐẠI DƯƠNG CHÂN LÝ";
+                    if (explanationTitle) explanationTitle.innerText = `LÝ LUẬN CHÂN LÝ: ${lastQ.question}`;
+                    if (explanationText) explanationText.innerText = lastQ.explanation;
+                    
+                    explanationOverlay.style.opacity = "1";
+                    explanationOverlay.style.pointerEvents = "auto";
+                    
+                    pendingNextQuestionData = nextData;
                 } else {
+                    if (finished) {
+                        onVictory({ rank: myPlayer.rank });
+                    } else {
+                        applyNextQuestion(nextData);
+                    }
+                }
+            } catch (err) {
+                console.error("Error rendering explanation overlay in setTimeout:", err);
+                // Emergency fallback to prevent game loop from locking up
+                if (nextData) {
                     applyNextQuestion(nextData);
                 }
             }
@@ -2017,6 +2186,7 @@ function useSmartRadar() {
         btn.style.opacity = "0.2";
         btn.style.pointerEvents = "none";
     });
+    savePlayerStateToLocalStorage();
 }
 
 // Item 2: Phản Lực / Turbo Boost (+1 câu hỏi instantly, extreme FOV warp)
@@ -2074,6 +2244,7 @@ function useTurboBoost() {
         myPlayer.rank = finishedCount + 1;
     }
 
+    savePlayerStateToLocalStorage();
     sendNextQuestion(true); // Always transition to explanation overlay phase first!
 }
 
@@ -2095,6 +2266,7 @@ function useShield() {
     updateInventoryUI();
 
     showFloatingText("🛡️ KÍCH HOẠT LÁ CHẮN SAO VÀNG THÀNH CÔNG!");
+    savePlayerStateToLocalStorage();
 }
 
 // Expose support items handlers to the global window scope
@@ -2158,14 +2330,18 @@ function handleLocalAnswer(answerIdx) {
     maybePublishPosition();
 
     if (ablyChannel && myPlayer) {
-        ablyChannel.publish("answer", {
-            id: myPlayer.id,
-            name: myPlayer.name,
-            color: myPlayer.color,
-            isCorrect: finalCorrect,
-            type: "normal",
-            timestamp: Date.now()
-        });
+        try {
+            ablyChannel.publish("answer", {
+                id: myPlayer.id,
+                name: myPlayer.name,
+                color: myPlayer.color,
+                isCorrect: finalCorrect,
+                type: "normal",
+                timestamp: Date.now()
+            });
+        } catch (e) {
+            console.error("Failed to publish answer to Ably:", e);
+        }
     }
 
     const finished = quizScore >= TARGET_CORRECT_ANSWERS;
@@ -2180,6 +2356,7 @@ function handleLocalAnswer(answerIdx) {
         myPlayer.rank = finishedCount + 1;
     }
 
+    savePlayerStateToLocalStorage();
     sendNextQuestion(finalCorrect); // Always transition to explanation overlay phase first!
 }
 
@@ -2227,7 +2404,15 @@ joinBtn.addEventListener("click", async () => {
 
     joinBtn.disabled = true;
     try {
-        myClientId = createPlayerId();
+        let savedClientId = localStorage.getItem("boat_player_client_id");
+        if (!savedClientId) {
+            savedClientId = createPlayerId();
+            localStorage.setItem("boat_player_client_id", savedClientId);
+        }
+        myClientId = savedClientId;
+        localStorage.setItem("boat_player_name", name);
+        localStorage.setItem("boat_player_color", selectedColor);
+
         const { channel } = await connectAbly({
             clientId: myClientId,
             name,
@@ -2247,11 +2432,51 @@ joinBtn.addEventListener("click", async () => {
         };
 
         applyBoatColor(myPlayer.color);
-        lobbyScreen.classList.remove("active");
-        waitingScreen.classList.add("active");
-        document.getElementById("player-welcome-msg").innerText =
-            `Chào Thuyền Trưởng ${myPlayer.name}, thuyền của bạn đã ở vạch xuất phát!`;
-        triggerSFX("horn");
+
+        // Restore game state if we were already in the middle of a game
+        const savedGameStarted = localStorage.getItem("boat_game_started") === "true";
+        if (savedGameStarted) {
+            quizScore = parseInt(localStorage.getItem("boat_player_score") || "0");
+            currentProgress = parseFloat(localStorage.getItem("boat_player_progress") || "0.0");
+            currentStreak = parseInt(localStorage.getItem("boat_player_streak") || "0");
+            try {
+                inventory = JSON.parse(localStorage.getItem("boat_player_inventory")) || { radar: 1, boost: 0, shield: 0 };
+            } catch(e) {
+                inventory = { radar: 1, boost: 0, shield: 0 };
+            }
+            isShieldActive = localStorage.getItem("boat_player_shield_active") === "true";
+            myPlayer.progress = currentProgress;
+
+            quizQueue = QUESTIONS.map((_, i) => i).sort(() => Math.random() - 0.5);
+            quizQueueIdx = quizScore;
+
+            lobbyScreen.classList.remove("active");
+            waitingScreen.classList.remove("active");
+            quizScreen.classList.add("active");
+
+            correctCount.innerText = quizScore;
+            playerProgressBar.style.width = `${currentProgress * 100}%`;
+            playerProgressBoat.style.left = `${currentProgress * 100}%`;
+
+            updateInventoryUI();
+            
+            gameStarted = true;
+            sendNextQuestion();
+            
+            // Switch background music from lobby to gameplay
+            if (bgmLobby) bgmLobby.pause();
+            if (bgmGameplay) {
+                bgmGameplay.volume = 0.3;
+                bgmGameplay.currentTime = 0;
+                bgmGameplay.play().catch(() => {});
+            }
+        } else {
+            lobbyScreen.classList.remove("active");
+            waitingScreen.classList.add("active");
+            document.getElementById("player-welcome-msg").innerText =
+                `Chào Thuyền Trưởng ${myPlayer.name}, thuyền của bạn đã ở vạch xuất phát!`;
+            triggerSFX("horn");
+        }
 
         await refreshLobbyFromPresence();
     } catch (err) {
@@ -2291,6 +2516,7 @@ function triggerConfetti() {
 }
 
 function onGameOver(data) {
+    clearPlayerStateFromLocalStorage();
     quizScreen.classList.remove("active");
     waitingScreen.classList.remove("active");
     if (pausedOverlay) {
@@ -2512,18 +2738,39 @@ function showCheatWarning(message) {
 const explanationContinueBtn = document.getElementById("explanation-continue-btn");
 if (explanationContinueBtn) {
     explanationContinueBtn.addEventListener("click", () => {
-        const explanationOverlay = document.getElementById("explanation-overlay");
-        if (explanationOverlay) {
-            explanationOverlay.style.opacity = "0";
-            explanationOverlay.style.pointerEvents = "none";
-        }
-        
-        const finished = quizScore >= TARGET_CORRECT_ANSWERS;
-        if (finished) {
-            onVictory({ rank: myPlayer.rank });
-        } else if (pendingNextQuestionData) {
-            applyNextQuestion(pendingNextQuestionData);
-            pendingNextQuestionData = null;
+        try {
+            const explanationOverlay = document.getElementById("explanation-overlay");
+            if (explanationOverlay) {
+                explanationOverlay.style.opacity = "0";
+                explanationOverlay.style.pointerEvents = "none";
+            }
+            
+            const finished = quizScore >= TARGET_CORRECT_ANSWERS;
+            if (finished) {
+                onVictory({ rank: myPlayer.rank });
+            } else if (pendingNextQuestionData) {
+                applyNextQuestion(pendingNextQuestionData);
+                pendingNextQuestionData = null;
+            } else {
+                console.warn("Continue clicked but pendingNextQuestionData is null! Attempting emergency recovery.");
+                // Emergency recovery: dynamically reconstruct the next question if state got lost
+                if (!finished && quizQueueIdx < quizQueue.length) {
+                    const nextQIdx = quizQueue[quizQueueIdx];
+                    const nextQ = QUESTIONS[nextQIdx];
+                    if (nextQ) {
+                        const recoveryData = {
+                            question_text: nextQ.question,
+                            options: nextQ.options,
+                            num_answered: quizScore,
+                            total_questions: TARGET_CORRECT_ANSWERS,
+                            progress: Math.min(1, quizScore / TARGET_CORRECT_ANSWERS),
+                        };
+                        applyNextQuestion(recoveryData);
+                    }
+                }
+            }
+        } catch (err) {
+            console.error("Error in explanationContinueBtn click handler:", err);
         }
     });
 }
@@ -2640,5 +2887,15 @@ function renderHallOfFame(leaderboard) {
         `;
         hofList.appendChild(tr);
     });
+}
+
+// Automatically reconnect/rejoin if game was already running on reload
+const savedGameStarted = localStorage.getItem("boat_game_started") === "true";
+if (savedName && savedGameStarted && playerNameInput && joinBtn) {
+    playerNameInput.value = savedName;
+    setTimeout(() => {
+        console.log("Automatically re-joining game for Captain", savedName);
+        joinBtn.click();
+    }, 1000);
 }
 

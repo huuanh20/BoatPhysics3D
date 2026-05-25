@@ -329,7 +329,7 @@ function playNationalAnthem() {
     sfxAmbient.pause();
 
     if (!sfxAnthem) {
-        sfxAnthem = new Audio('/vietnam_anthem.mp3');
+        sfxAnthem = new Audio('/assets/audio/vietnam_anthem.mp3');
         sfxAnthem.volume = 0.8;
     }
     sfxAnthem.currentTime = 0;
@@ -566,6 +566,14 @@ const START_Z = 300;
 const FINISH_Z = -500;
 const TOTAL_DIST = START_Z - FINISH_Z; // 800 units
 
+// Pre-allocated reusable Three.js objects to avoid garbage collection spikes inside the animation loop
+const labelTempV = new THREE.Vector3();
+const radarCenterFallback = new THREE.Vector3(0, 12.15, START_Z);
+const reticleTargetPos = new THREE.Vector3();
+const cameraLeaderPos = new THREE.Vector3();
+const cameraTargetLerpVec = new THREE.Vector3();
+const explosionQueryTempV = new THREE.Vector3();
+
 // Stable Lane Assignment Maps
 let laneMap = {}; // Maps sid -> lane index (0-19)
 let usedLanes = new Array(100).fill(false);
@@ -586,20 +594,16 @@ let sceneryBirds = [];
 let sceneryWhale = null;
 
 // --- GATE CONFIGURATION ---
-const gateZPositions = [140, -20, -180, -340, -500];
+const gateZPositions = [120, -160, -500];
 const gateTitles = [
-    "CỔNG 1: HIỂU LẦM SỞ HỮU CÁ NHÂN",
-    "CỔNG 2: HIỂU LẦM MÔ HÌNH CÀO BẰNG",
-    "CỔNG 3: HIỂU LẦM TRIỆT TIÊU DÂN CHỦ",
-    "CỔNG 4: HIỂU LẦM KHÔNG TƯỞNG & THẤT BẠI",
-    "CỔNG 5: HIỂU LẦM ĐỐI LẬP TUYỆT ĐỐI"
+    "CỔNG 1: BẢN CHẤT CHỦ NGHĨA XÃ HỘI",
+    "CỔNG 2: THỜI KỲ QUÁ ĐỘ LÊN CHỦ NGHĨA XÃ HỘI",
+    "CỔNG 3: VIỆT NAM VÀ ĐƯỜNG LÊN CNXH"
 ];
 const gateSubtitles = [
-    "Sự thật: CNXH bảo vệ sở hữu cá nhân và tôn trọng thành quả lao động!",
-    "Sự thật: Phân phối theo lao động - làm nhiều hưởng nhiều, làm ít hưởng ít!",
-    "Sự thật: Nền dân chủ XHCN thuộc về tuyệt đại đa số nhân dân lao động!",
-    "Sự thật: Sự sụp đổ của một mô hình giáo điều không phải là thất bại của lý tưởng!",
-    "Sự thật: Kế thừa và phát triển tinh hoa văn minh nhân loại của CNTB!"
+    "Sự thật: Giải phóng giai cấp, giải phóng xã hội, giải phóng con người!",
+    "Sự thật: Sự tồn tại đan xen giữa xã hội cũ và nhân tố xã hội chủ nghĩa mới!",
+    "Sự thật: Bỏ qua chế độ tư bản chủ nghĩa để đi lên XHCN một cách độc lập, sáng tạo!"
 ];
 let activeGates = [];
 
@@ -680,14 +684,23 @@ function init3D() {
     const container = document.getElementById("canvas-container");
     
     // Renderer
-    renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // Capped at 1.5 for admin view to prevent lag on 4K/Retina monitors
+    renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.2)); // Capped at 1.2 for spectator screens to prevent lag on Retina/4K laptop displays mirroring to projectors
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.8;
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFShadowMap; // Optimized soft shadow mapping to standard shadow mapping
+    renderer.shadowMap.enabled = false; // Spectator Simplification Mode: disabled shadows to save huge GPU overhead
     container.appendChild(renderer.domElement);
+
+    // WebGL Context Loss Recovery
+    renderer.domElement.addEventListener("webglcontextlost", (event) => {
+        event.preventDefault();
+        console.warn("WebGL Context lost! Attempting recovery...");
+    }, false);
+    renderer.domElement.addEventListener("webglcontextrestored", () => {
+        console.log("WebGL Context restored successfully!");
+        init3D(); // Reinitialize
+    }, false);
 
     // Scene
     scene = new THREE.Scene();
@@ -710,26 +723,15 @@ function init3D() {
 
     const dirLight = new THREE.DirectionalLight(0xffb07c, 1.8); // Brighter, warm sunset orange-gold light
     dirLight.position.set(250, 350, -200);
-    dirLight.castShadow = true;
-    dirLight.shadow.mapSize.width = 1024; // Optimized shadow resolution from 2048 to 1024
-    dirLight.shadow.mapSize.height = 1024;
-    dirLight.shadow.camera.near = 0.5;
-    dirLight.shadow.camera.far = 4000;
-    dirLight.shadow.bias = -0.0005;
-
-    const d = 1200;
-    dirLight.shadow.camera.left = -d;
-    dirLight.shadow.camera.right = d;
-    dirLight.shadow.camera.top = d;
-    dirLight.shadow.camera.bottom = -d;
+    dirLight.castShadow = false; // Spectator Simplification Mode: no shadows cast
     scene.add(dirLight);
 
     // Water
-    const waterGeometry = new THREE.PlaneGeometry(120000, 120000);
+    const waterGeometry = new THREE.PlaneGeometry(100000, 100000);
     water = new Water(waterGeometry, {
         textureWidth: 512,
         textureHeight: 512,
-        waterNormals: new THREE.TextureLoader().load("helpers/waternormals.jpg", (texture) => {
+        waterNormals: new THREE.TextureLoader().load("assets/textures/waternormals.jpg", (texture) => {
             texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
         }),
         sunDirection: new THREE.Vector3(),
@@ -831,8 +833,8 @@ function init3D() {
     leaderReticle.visible = false;
     scene.add(leaderReticle);
 
-    // Pre-load boat template for cloned competitor spawning
-    loader.load("helpers/boat/scene.gltf", (gltf) => {
+    // Load Player's Boat Mesh
+    loader.load("assets/models/boat/scene.gltf", (gltf) => {
         boatTemplate = gltf.scene;
     });
 
@@ -1122,7 +1124,7 @@ function createWorldScenery(scene) {
 
     /*
     // Load and Clone high-quality 3D Sketchfab Islands
-    loader.load("helpers/tropical_island/scene.gltf", (gltf) => {
+    loader.load("assets/models/tropical_island/scene.gltf", (gltf) => {
         console.log("3D Tropical Island loaded successfully!");
         const islandModel = gltf.scene;
         
@@ -1531,36 +1533,57 @@ function onWindowResize() {
     renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-// Render dynamic floating player labels above 3D boats
+// Render dynamic floating player labels above 3D boats (Optimized with hardware acceleration and lazy-DOM updates)
 function updatePlayerLabels() {
-    const tempV = new THREE.Vector3();
     Object.keys(activePlayers).forEach(sid => {
         const p = activePlayers[sid];
         if (p.mesh && p.labelDiv) {
-            p.mesh.getWorldPosition(tempV);
-            tempV.y += 12; // Floating height offset
-            tempV.project(camera);
+            p.mesh.getWorldPosition(labelTempV);
+            labelTempV.y += 12; // Floating height offset
+            labelTempV.project(camera);
             
             // Behind camera?
-            if (tempV.z > 1) {
-                p.labelDiv.style.display = 'none';
+            if (labelTempV.z > 1) {
+                if (p.labelDiv.style.display !== 'none') {
+                    p.labelDiv.style.display = 'none';
+                }
                 return;
             }
             
-            const x = (tempV.x * 0.5 + 0.5) * window.innerWidth;
-            const y = (tempV.y * -0.5 + 0.5) * window.innerHeight;
+            const x = (labelTempV.x * 0.5 + 0.5) * window.innerWidth;
+            const y = (labelTempV.y * -0.5 + 0.5) * window.innerHeight;
             
-            p.labelDiv.style.left = `${x}px`;
-            p.labelDiv.style.top = `${y}px`;
-            p.labelDiv.style.display = 'block';
+            // Set left and top to 0px once to leverage translate3d GPU composition (bypasses layout reflow)
+            if (p.labelDiv.style.left !== '0px') {
+                p.labelDiv.style.left = '0px';
+                p.labelDiv.style.top = '0px';
+            }
             
-            // Update rank badges in the floating tag
+            // Apply hardware-accelerated transform positioning
+            const transformStr = `translate3d(${Math.round(x)}px, ${Math.round(y)}px, 0)`;
+            if (p.labelDiv.style.transform !== transformStr) {
+                p.labelDiv.style.transform = transformStr;
+            }
+            
+            if (p.labelDiv.style.display !== 'block') {
+                p.labelDiv.style.display = 'block';
+            }
+            
+            // Lazy innerHTML & className updates (only write to DOM if values actually changed!)
+            let expectedHTML = "";
+            let expectedClassName = "floating-player-label";
             if (p.rank) {
-                p.labelDiv.className = `floating-player-label rank-${p.rank}`;
-                p.labelDiv.innerHTML = `<span style="color:#f1c40f;">🏆 Hạng ${p.rank}</span> | ${p.name}`;
+                expectedClassName = `floating-player-label rank-${p.rank}`;
+                expectedHTML = `<span style="color:#f1c40f;">🏆 Hạng ${p.rank}</span> | ${p.name}`;
             } else {
-                p.labelDiv.className = `floating-player-label`;
-                p.labelDiv.innerHTML = `${p.name} (${Math.round(p.progress * 100)}%)`;
+                expectedHTML = `${p.name} (${Math.round(p.progress * 100)}%)`;
+            }
+            
+            if (p.labelDiv.className !== expectedClassName) {
+                p.labelDiv.className = expectedClassName;
+            }
+            if (p.labelDiv.innerHTML !== expectedHTML) {
+                p.labelDiv.innerHTML = expectedHTML;
             }
         }
     });
@@ -1746,7 +1769,7 @@ function animate() {
                     leader = activePlayers[sid];
                 }
             });
-            const centerPos = (leader && leader.mesh) ? leader.mesh.position : new THREE.Vector3(0, 12.15, START_Z);
+            const centerPos = (leader && leader.mesh) ? leader.mesh.position : radarCenterFallback;
             radarRing.position.set(centerPos.x, 12.15, centerPos.z);
 
             radarScale += 2.0;
@@ -1773,7 +1796,8 @@ function animate() {
             if (leader && leader.mesh && gameStarted) {
                 leaderReticle.visible = true;
                 const targetPos = leader.mesh.position;
-                leaderReticle.position.lerp(new THREE.Vector3(targetPos.x, 12.18, targetPos.z), 0.15);
+                reticleTargetPos.set(targetPos.x, 12.18, targetPos.z);
+                leaderReticle.position.lerp(reticleTargetPos, 0.15);
                 leaderReticle.rotation.y += 0.015;
             } else {
                 leaderReticle.visible = false;
@@ -1813,14 +1837,15 @@ function trackRaceCamera() {
     });
     
     if (leader && leader.mesh) {
-        const leaderPos = new THREE.Vector3();
-        leader.mesh.getWorldPosition(leaderPos);
+        cameraLeaderPos.set(0, 0, 0);
+        leader.mesh.getWorldPosition(cameraLeaderPos);
         
-        // Slide OrbitControls target to track leader (top-down centered)
-        controls.target.lerp(new THREE.Vector3(-100, 10, leaderPos.z), 0.04);
+        // Slide OrbitControls target to track leader (top-down centered) (using pre-allocated Vector3 to avoid GC spikes)
+        cameraTargetLerpVec.set(-100, 10, cameraLeaderPos.z);
+        controls.target.lerp(cameraTargetLerpVec, 0.04);
         
         // Camera follows directly above (top-down)
-        camera.position.z += (leaderPos.z - camera.position.z) * 0.04;
+        camera.position.z += (cameraLeaderPos.z - camera.position.z) * 0.04;
     }
 }
 
@@ -2265,6 +2290,7 @@ function sync3DPlayers(playersList) {
             };
 
             const setupCompetitorBoat = (boat) => {
+                if (!activePlayers[p.sid]) return; // Safe guard against race condition if player disconnects during async GLTF load
                 boat.scale.set(2.5, 2.5, 2.5);
                 const currentZ = START_Z - (activePlayers[p.sid].progress * TOTAL_DIST);
                 boat.position.set(laneX, 24.0, currentZ);
@@ -2297,7 +2323,7 @@ function sync3DPlayers(playersList) {
                 if (boatTemplate) {
                     setupCompetitorBoat(boatTemplate.clone());
                 } else {
-                    loader.load("helpers/boat/scene.gltf", (gltf) => {
+                    loader.load("assets/models/boat/scene.gltf", (gltf) => {
                         if (!boatTemplate) boatTemplate = gltf.scene;
                         setupCompetitorBoat(boatTemplate.clone());
                     });
@@ -2678,9 +2704,9 @@ function onGameOver(data) {
         if (!winnerSids.includes(sid)) {
             // Blow it up!
             if (p.mesh) {
-                const pos = new THREE.Vector3();
-                p.mesh.getWorldPosition(pos);
-                trigger3DExplosion(pos.x, pos.y, pos.z);
+                explosionQueryTempV.set(0, 0, 0);
+                p.mesh.getWorldPosition(explosionQueryTempV);
+                trigger3DExplosion(explosionQueryTempV.x, explosionQueryTempV.y, explosionQueryTempV.z);
                 
                 // Animate wreck sinking
                 let t = 0;

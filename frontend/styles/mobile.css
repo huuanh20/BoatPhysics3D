@@ -1,0 +1,9 @@
+@import "../style.css";
+
+/* Mobile responsive optimizations for phone players */
+@media (max-width: 768px) {
+    .floating-player-label {
+        font-size: 0.75rem;
+        padding: 4px 8px;
+    }
+}

@@ -1,5 +1,5 @@
 export const CHANNEL_NAME = "boat:global";
-export const PUBLISH_INTERVAL_MS = 120; // Increased from 75ms to 120ms to reduce network traffic congestion by ~40%
+export const PUBLISH_INTERVAL_MS = 1000; // Increased to 1000ms to reduce network traffic congestion by 90% (Lerp guarantees smooth visual movement)
 
 export function createPlayerId() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
@@ -129,11 +129,18 @@ function waitForConnection(ably) {
       resolve();
       return;
     }
+    const timeoutId = setTimeout(() => {
+      cleanup();
+      reject(new Error("Ably connection timed out (8s limit reached)"));
+    }, 8000); // 8s connection timeout limit to prevent infinite hang
+
     const onConnected = () => {
+      clearTimeout(timeoutId);
       cleanup();
       resolve();
     };
     const onFailed = (err) => {
+      clearTimeout(timeoutId);
       cleanup();
       reject(err?.reason || new Error("Ably connection failed"));
     };
@@ -170,7 +177,7 @@ export async function connectAbly({ clientId, name, color, role }) {
     } else {
       const authUrl = `/api/ably-token?clientId=test-probe`;
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1200); // 1.2s timeout
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8.0s timeout instead of 1.2s to support laggy 3G/4G
       
       const res = await fetch(authUrl, { 
         credentials: "same-origin",

@@ -1,0 +1,13 @@
+@import "../style.css";
+
+/* Projector and spectator styling overrides for big display screens */
+body.admin-view {
+    background: #0f1d24;
+    overflow: hidden;
+}
+
+.floating-player-label {
+    will-change: transform;
+    pointer-events: none;
+    user-select: none;
+}

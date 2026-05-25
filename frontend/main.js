@@ -80,7 +80,6 @@ class Boat {
       const adjustment = centrifugalForce * 0.001 * fpsRatio;
       this.boat.position.x += adjustment;
 
-      // Tính góc nghiêng ly tâm và cộng dồn vào trục Z để không bị đè bởi hiệu ứng sóng
       const centrifugalTilt = this.calculateTilt() * Math.sign(this.speed.rot);
       this.boat.rotation.z += centrifugalTilt;
     }
@@ -112,7 +111,6 @@ class Boat {
               }
           }
 
-          // Cập nhật hiệu ứng sóng trước để lấy vị trí Y và góc nghiêng nền
           this.applyWaveEffect();
           
           wind.applyWindEffect(this, deltaTime);
@@ -135,7 +133,6 @@ class Boat {
     const waveEffect = Math.sin(time * boatForces.waveFrequency) * boatForces.waveAmplitude;
     this.boat.position.y = 13 + waveEffect;
     
-    // NÂNG CẤP: Tạo chuyển động nghiêng lắc lư gập ghềnh (Pitch & Roll) mô phỏng sóng biển Three.js siêu chân thực
     const roll = Math.sin(time * 1.5 * boatForces.waveFrequency) * 0.04 * boatForces.waveAmplitude + (this.speed.rot * 0.4);
     const pitch = Math.cos(time * 1.2 * boatForces.waveFrequency) * 0.03 * boatForces.waveAmplitude + (this.speed.vel * 0.015);
     
@@ -205,7 +202,7 @@ class Wind {
   }
 
   updateWind(newDirection, newSpeed) {
-    this.direction.copy(newDirection).normalize(); // Tránh tạo new Vector3 liên tục
+    this.direction.copy(newDirection).normalize();
     this.speed = newSpeed;
   }
 
@@ -225,14 +222,11 @@ class Wind {
 }
 
 const wind = new Wind();
-
-// Tái sử dụng Vector3 tĩnh tránh rò rỉ bộ nhớ (Garbage Collector pressure) mỗi khung hình
 const staticWindVector = new THREE.Vector3();
 
 async function init() {
-    // Tối ưu hóa WebGLRenderer bật Antialias và ưu tiên GPU rời (high-performance)
     renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Giới hạn PixelRatio ở mức 2 để bảo vệ hiệu năng di động
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     document.body.appendChild(renderer.domElement);
@@ -278,6 +272,7 @@ async function init() {
 
     const pmremGenerator = new THREE.PMREMGenerator(renderer);
 
+    // ĐƯA HÀM updateSun() VÀO ĐÚNG VỊ TRÍ CLOSURE BÊN TRONG HÀM init() ĐỂ TRÁNH LỖI REFERENCE ERROR
     function updateSun() {
         const phi = THREE.MathUtils.degToRad(90 - parameters.elevation);
         const theta = THREE.MathUtils.degToRad(parameters.azimuth);
@@ -393,14 +388,12 @@ let oldElapsedTime = 0;
 
 async function animate() {
     const elapsedTime = clock.getElapsedTime();
-    const deltaTime = Math.min(elapsedTime - oldElapsedTime, 0.1); // Giới hạn deltaTime tối đa 0.1s để tránh giật lag đột ngột phá vỡ vật lý
+    const deltaTime = Math.min(elapsedTime - oldElapsedTime, 0.1); 
     oldElapsedTime = elapsedTime;
 
-    // Tối ưu hóa: Sao chép giá trị vào Vector3 tĩnh thay vì khởi tạo new liên tục mỗi frame
     staticWindVector.set(wind.direction.x, wind.direction.y, wind.direction.z);
     wind.updateWind(staticWindVector, wind.speed);
 
-    // Truyền deltaTime vào các hàm cập nhật vật lý
     boat.update(deltaTime);
     myControls(deltaTime);
     
