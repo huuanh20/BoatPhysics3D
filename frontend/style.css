@@ -2365,4 +2365,66 @@ body, html {
 }
 .option-btn.controller-mode:active {
     transform: translateY(2px) scale(0.98) !important;
+}
+
+/* Premium Esports Dynamic Network & FPS HUD */
+.network-health-hud {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(11, 14, 20, 0.75);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(0, 242, 254, 0.35);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5), 0 0 10px rgba(0, 242, 254, 0.15);
+    border-radius: 12px;
+    padding: 6px 14px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    z-index: 99999;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #8da2c4;
+    transition: all 0.3s ease;
+    border-left: 3px solid #00f2fe;
+}
+
+.network-health-hud:hover {
+    border-color: rgba(0, 242, 254, 0.6);
+    box-shadow: 0 5px 20px rgba(0, 242, 254, 0.3);
+    transform: translateY(-2px);
+}
+
+.hud-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+}
+
+.hud-item span {
+    font-family: 'Montserrat', monospace;
+    font-weight: 800;
+    font-size: 0.75rem;
+    text-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
+}
+
+/* Mobile responsive style for Esports HUD */
+@media (max-width: 600px) {
+    .network-health-hud {
+        top: 8px;
+        right: 8px;
+        padding: 4px 8px;
+        gap: 6px;
+        font-size: 0.62rem;
+        border-radius: 6px;
+    }
+    .hud-item {
+        gap: 2px;
+    }
+    .hud-item span {
+        font-size: 0.62rem;
+    }
 }
