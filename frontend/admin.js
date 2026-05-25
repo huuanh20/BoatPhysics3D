@@ -3009,82 +3009,10 @@ function renderHallOfFame(leaderboard) {
 }
 
 // ==========================================================================
-// STRESS TEST 50 BOTS SYSTEM
+// STRESS TEST 50 BOTS SYSTEM (DISABLED FOR PRODUCTION)
 // ==========================================================================
 window.activeBots = [];
-let botUpdateInterval = null;
-
-const stressTestBtn = document.getElementById("stress-test-btn");
-const stopStressTestBtn = document.getElementById("stop-stress-test-btn");
-
-function generateBots(count) {
-    const bots = [];
-    const colors = [
-        "#ff3838", "#ff9f1a", "#fff200", "#32ff7e", "#7efff5", 
-        "#18dcff", "#7d5fff", "#c56cf0", "#ffb8b8", "#ffaf40", 
-        "#fffa65", "#3ae374", "#17c0eb", "#7158e2", "#cd84f1",
-        "#ff4d4d", "#ffaf40", "#ffcd3c", "#2bcbba", "#45aaf2"
-    ];
-    for (let i = 0; i < count; i++) {
-        bots.push({
-            id: `bot_${i + 1}`,
-            sid: `bot_${i + 1}`,
-            name: `Thuyền Trưởng ${i + 1}`,
-            color: colors[i % colors.length],
-            progress: 0.0,
-            rank: null
-        });
-    }
-    return bots;
-}
-
-if (stressTestBtn) {
-    stressTestBtn.addEventListener("click", () => {
-        if (window.activeBots && window.activeBots.length > 0) return;
-        
-        window.activeBots = generateBots(50);
-        
-        // Cập nhật hiển thị nút
-        stressTestBtn.style.display = "none";
-        if (stopStressTestBtn) stopStressTestBtn.style.display = "block";
-        
-        // Gửi sự kiện qua Ably để đồng bộ với Client
-        if (ablyChannel) {
-            ablyChannel.publish("admin", {
-                type: "stress_test_start",
-                bots: window.activeBots
-            });
-        }
-        
-        // Refresh UI
-        refreshAdminPresence();
-        addEventLog("🧪 Đã kích hoạt 50 Bots giả lập Stress Test!");
-    });
-}
-
-if (stopStressTestBtn) {
-    stopStressTestBtn.addEventListener("click", () => {
-        stopStressTest();
-    });
-}
-
 function stopStressTest() {
-    if (botUpdateInterval) {
-        clearInterval(botUpdateInterval);
-        botUpdateInterval = null;
-    }
     window.activeBots = [];
-    
-    if (stressTestBtn) stressTestBtn.style.display = "block";
-    if (stopStressTestBtn) stopStressTestBtn.style.display = "none";
-    
-    if (ablyChannel) {
-        ablyChannel.publish("admin", {
-            type: "stress_test_stop"
-        });
-    }
-    
-    refreshAdminPresence();
-    addEventLog("⏹️ Đã tắt 50 Bots giả lập.");
 }
 
