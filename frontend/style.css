@@ -385,6 +385,19 @@ body, html {
     border-radius: 24px !important;
 }
 
+/* Override .glass-panel absolute centering styles for nested educational explanation cards */
+.explanation-card {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    transform: none !important;
+    opacity: 1 !important;
+    pointer-events: all !important;
+    transition: none !important;
+    width: 100% !important;
+    margin: 0 auto !important;
+}
+
 .question-header {
     display: flex;
     justify-content: space-between;
@@ -2128,7 +2141,9 @@ body, html {
 }
 
 .modal-overlay.active .modal-content {
-    transform: scale(1);
+    transform: scale(1) !important;
+    opacity: 1 !important;
+    pointer-events: all !important;
 }
 
 .close-modal-btn {
