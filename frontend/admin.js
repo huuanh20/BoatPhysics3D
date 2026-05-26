@@ -2041,10 +2041,25 @@ function setupAdminAbly(channel) {
         const data = msg.data;
         if (!data?.id) return;
 
+        // Ensure player has a stable lane assigned immediately
+        if (laneMap[data.id] === undefined) {
+            let freeLane = 0;
+            for (let i = 0; i < 100; i++) {
+                if (!usedLanes[i]) {
+                    freeLane = i;
+                    break;
+                }
+            }
+            laneMap[data.id] = freeLane;
+            usedLanes[freeLane] = true;
+        }
+        const laneIndex = laneMap[data.id];
+        const assignedLaneX = -232 + laneIndex * 16;
+
         if (activePlayers[data.id]) {
             activePlayers[data.id].progress = data.progress ?? activePlayers[data.id].progress;
             activePlayers[data.id].rank = data.rank ?? activePlayers[data.id].rank;
-            activePlayers[data.id].targetX = data.x;
+            activePlayers[data.id].targetX = assignedLaneX; // Secure stable lane X coordinate
             activePlayers[data.id].targetZ = data.z;
             updateLiveLeaderboard();
             trackWinnerFromPos(data);
@@ -2055,7 +2070,8 @@ function setupAdminAbly(channel) {
                 loading: true,
                 progress: data.progress ?? 0.0,
                 targetZ: START_Z - ((data.progress ?? 0.0) * TOTAL_DIST),
-                laneX: -232 // placeholder lane
+                laneX: assignedLaneX,
+                targetX: assignedLaneX
             };
             refreshAdminPresence();
         }
