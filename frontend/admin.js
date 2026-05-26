@@ -2501,6 +2501,9 @@ function onGameReset() {
         const p = activePlayers[sid];
         p.progress = 0.0;
         p.rank = null;
+        p.score = 0;
+        p.totalTime = 0.0;
+        p.targetZ = START_Z;
         if (p.mesh && scene) {
             // Restore position to start line using correct stable lane coordinate
             p.mesh.position.set(p.laneX, 24.0, START_Z);
@@ -2723,6 +2726,7 @@ function handlePlayerAnswer(playerId, isCorrect, timeTaken) {
         p.score = (p.score || 0) + (isCorrect ? 1 : 0);
         p.totalTime = (p.totalTime || 0) + timeTaken;
         p.progress = p.score / 20.0;
+        p.targetZ = START_Z - (p.progress * TOTAL_DIST);
         
         p.answerStatus = {
             text: isCorrect ? "Đã Trả Lời Đúng" : "Đã Trả Lời Sai",
