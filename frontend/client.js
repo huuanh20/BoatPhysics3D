@@ -384,6 +384,17 @@ let accelerationEffect = 0.0; // Dynamic G-force camera stretch
 let hudFrameCount = 0;
 let hudLastFpsUpdate = performance.now();
 
+// Adaptive Graphics & Performance State
+const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+const isLowEnd = (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) || 
+                  (navigator.deviceMemory && navigator.deviceMemory <= 4);
+let graphicsSetting = localStorage.getItem("boat_graphics_setting") || "auto"; 
+let currentGraphicsMode = "ultra"; // active quality: "ultra" or "performance"
+let consecutiveLowFps = 0;
+let fancyWater = null;
+let simpleWater = null;
+let dirLight = null; // Directional light reference for toggling shadows
+
 // 3D Scene Setup
 let camera, scene, renderer;
 let water, sky, sun;
@@ -533,7 +544,7 @@ function init3D() {
     const ambientLight = new THREE.AmbientLight(0x4a5d78, 0.35); // Cool blue-grey shadows to match deep ocean sunset
     scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffb07c, 1.8); // Brighter, warm sunset orange-gold light
+    dirLight = new THREE.DirectionalLight(0xffb07c, 1.8); // Brighter, warm sunset orange-gold light
     dirLight.position.set(250, 350, -200);
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.width = 1024; // Optimized shadow resolution from 2048 to 1024
@@ -549,9 +560,11 @@ function init3D() {
     dirLight.shadow.camera.bottom = -d;
     scene.add(dirLight);
 
-    // Water
+    // Water Setup
     const waterGeometry = new THREE.PlaneGeometry(100000, 100000);
-    water = new Water(waterGeometry, {
+    
+    // 1. Fancy Water (High Quality Shader)
+    fancyWater = new Water(waterGeometry, {
         textureWidth: 512,
         textureHeight: 512,
         waterNormals: new THREE.TextureLoader().load("assets/textures/waternormals.jpg", (texture) => {
@@ -563,10 +576,24 @@ function init3D() {
         distortionScale: 1.5,
         fog: false,
     });
-    water.rotation.x = -Math.PI / 2;
-    water.position.y = 12.0;
-    water.receiveShadow = true;
-    scene.add(water);
+    fancyWater.rotation.x = -Math.PI / 2;
+    fancyWater.position.y = 12.0;
+    fancyWater.receiveShadow = true;
+
+    // 2. Simple Water (Low Quality Flat Shader)
+    const simpleWaterMat = new THREE.MeshStandardMaterial({
+        color: 0x004e5a,
+        roughness: 0.15,
+        metalness: 0.8,
+        flatShading: true
+    });
+    simpleWater = new THREE.Mesh(waterGeometry, simpleWaterMat);
+    simpleWater.rotation.x = -Math.PI / 2;
+    simpleWater.position.y = 12.0;
+    simpleWater.receiveShadow = false;
+
+    // Initial water reference
+    water = fancyWater;
 
     // Sky & Sun
     sky = new Sky();
@@ -591,7 +618,9 @@ function init3D() {
     sun.setFromSphericalCoords(1, phi, theta);
     
     sky.material.uniforms["sunPosition"].value.copy(sun);
-    water.material.uniforms["sunDirection"].value.copy(sun).normalize();
+    if (water && water.material && water.material.uniforms) {
+        water.material.uniforms["sunDirection"].value.copy(sun).normalize();
+    }
     scene.environment = pmremGenerator.fromScene(sky).texture;
 
 
@@ -630,6 +659,9 @@ function init3D() {
 
     // Resize Handler
     window.addEventListener("resize", onWindowResize);
+
+    // Apply initial graphics profile settings
+    applyGraphicsSetting();
 }
 
 function paintBoat(boatGroup, colorHex) {
@@ -1424,6 +1456,95 @@ function onWindowResize() {
     renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
+// ==========================================================================
+// ADAPTIVE GRAPHICS QUALITY SYSTEM CONTROLLER
+// ==========================================================================
+function applyGraphicsSetting() {
+    if (graphicsSetting === "auto") {
+        currentGraphicsMode = (isMobile || isLowEnd) ? "performance" : "ultra";
+    } else {
+        currentGraphicsMode = graphicsSetting;
+    }
+    
+    console.log(`[GRAPHICS] Applying quality: ${currentGraphicsMode} (Setting: ${graphicsSetting})`);
+    
+    // Apply Settings to THREE.js Renderer & Lights
+    if (renderer) {
+        const dpr = currentGraphicsMode === "performance" ? 0.95 : Math.min(window.devicePixelRatio, 1.2);
+        renderer.setPixelRatio(dpr);
+        
+        if (currentGraphicsMode === "performance") {
+            renderer.shadowMap.enabled = false;
+            if (dirLight) dirLight.castShadow = false;
+        } else {
+            renderer.shadowMap.enabled = true;
+            if (dirLight) dirLight.castShadow = true;
+        }
+    }
+    
+    // Toggle Ocean Complexity & Scenery
+    toggleWaterQuality();
+    toggleSceneryComplexity();
+}
+
+function toggleWaterQuality() {
+    if (!scene) return;
+    
+    if (currentGraphicsMode === "performance") {
+        if (scene.children.includes(fancyWater)) {
+            scene.remove(fancyWater);
+        }
+        if (!scene.children.includes(simpleWater)) {
+            scene.add(simpleWater);
+        }
+        water = simpleWater;
+    } else {
+        if (scene.children.includes(simpleWater)) {
+            scene.remove(simpleWater);
+        }
+        if (!scene.children.includes(fancyWater)) {
+            scene.add(fancyWater);
+        }
+        water = fancyWater;
+    }
+}
+
+function toggleSceneryComplexity() {
+    const isPerf = currentGraphicsMode === "performance";
+    
+    // Hide/show cloud groups to cut draw calls
+    sceneryClouds.forEach(cloud => {
+        cloud.visible = !isPerf;
+    });
+    
+    // Hide/show lighthouse search beam
+    if (sceneryLighthouseBeam) {
+        sceneryLighthouseBeam.visible = !isPerf;
+    }
+    
+    // Hide/show seagulls flock
+    if (sceneryBirds.flockGroup) {
+        sceneryBirds.flockGroup.visible = !isPerf;
+    }
+    
+    // Hide/show sharks
+    scenerySharks.forEach(shark => {
+        if (shark.mesh) {
+            shark.mesh.visible = !isPerf;
+        }
+    });
+    
+    // Hide/show yacht backdrop
+    if (sceneryYacht) {
+        sceneryYacht.visible = !isPerf;
+    }
+    
+    // Hide/show cargo ship backdrop
+    if (sceneryCargoShip) {
+        sceneryCargoShip.visible = !isPerf;
+    }
+}
+
 // 3D Animation Loop
 let lastFrameTime = performance.now();
 
@@ -1457,6 +1578,23 @@ function animate() {
                     statusVal.style.color = "#2ecc71";
                 }
             }
+
+            // Auto-detect lag and auto-downgrade quality if setting is "auto"
+            if (graphicsSetting === "auto" && currentGraphicsMode === "ultra") {
+                if (calculatedFps < 28) {
+                    consecutiveLowFps++;
+                    if (consecutiveLowFps >= 3) {
+                        currentGraphicsMode = "performance";
+                        applyGraphicsSetting();
+                        showFloatingText("⚡ ĐỒ HỌA TỰ ĐỘNG CHUYỂN SANG MƯỢT ĐỂ TRÁNH LAG!");
+                    }
+                } else {
+                    consecutiveLowFps = 0;
+                }
+            } else {
+                consecutiveLowFps = 0;
+            }
+
             hudFrameCount = 0;
             hudLastFpsUpdate = nowTime;
         }
@@ -1561,6 +1699,19 @@ function animate() {
                 if (Math.abs(boatForces.waveAmplitude - env.waveAmplitude) > 0.01) {
                     boatForces.waveAmplitude += (env.waveAmplitude - boatForces.waveAmplitude) * 0.05 * fpsRatio;
                     water.material.uniforms["distortionScale"].value = boatForces.waveAmplitude;
+                }
+                if (Math.abs(boatForces.waveFrequency - env.waveFrequency) > 0.01) {
+                    boatForces.waveFrequency += (env.waveFrequency - boatForces.waveFrequency) * 0.05 * fpsRatio;
+                }
+                
+                boatForces.windForce += (env.windSpeed * 0.5 - boatForces.windForce) * 0.05 * fpsRatio;
+            } else if (water && water.material && water.material.color) {
+                // Low quality water mesh: lerp simple color
+                water.material.color.lerp(env.waterColor, 0.05 * fpsRatio);
+                
+                // Still update physical forces so the boat's motion matches the zone stages!
+                if (Math.abs(boatForces.waveAmplitude - env.waveAmplitude) > 0.01) {
+                    boatForces.waveAmplitude += (env.waveAmplitude - boatForces.waveAmplitude) * 0.05 * fpsRatio;
                 }
                 if (Math.abs(boatForces.waveFrequency - env.waveFrequency) > 0.01) {
                     boatForces.waveFrequency += (env.waveFrequency - boatForces.waveFrequency) * 0.05 * fpsRatio;
@@ -1780,6 +1931,25 @@ colorButtons.forEach(btn => {
         btn.classList.add("active");
         selectedColor = btnColor;
         applyBoatColor(selectedColor); // Apply color in real-time in lobby!
+    });
+});
+
+// GRAPHICS SELECTION LOGIC
+const graphicsButtons = document.querySelectorAll(".graphics-btn");
+graphicsButtons.forEach(btn => {
+    const quality = btn.getAttribute("data-quality");
+    if (quality === graphicsSetting) {
+        btn.classList.add("active");
+    } else {
+        btn.classList.remove("active");
+    }
+    
+    btn.addEventListener("click", () => {
+        graphicsButtons.forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        graphicsSetting = quality;
+        localStorage.setItem("boat_graphics_setting", graphicsSetting);
+        applyGraphicsSetting();
     });
 });
 
@@ -2107,31 +2277,11 @@ function sendNextQuestion(lastCorrect = null) {
             try {
                 feedbackOverlay.classList.remove("active");
                 
-                // Render the Explanation Card Overlay
-                const lastQIdx = quizQueue[quizQueueIdx - 1];
-                const lastQ = QUESTIONS[lastQIdx];
-                
-                const explanationOverlay = document.getElementById("explanation-overlay");
-                const explanationBadge = document.getElementById("explanation-badge");
-                const explanationChapter = document.getElementById("explanation-chapter");
-                const explanationTitle = document.getElementById("explanation-title");
-                const explanationText = document.getElementById("explanation-text");
-                
-                if (explanationOverlay && lastQ) {
-                    if (explanationChapter) explanationChapter.innerText = lastQ.chapter || "ĐẠI DƯƠNG CHÂN LÝ";
-                    if (explanationTitle) explanationTitle.innerText = `LÝ LUẬN CHÂN LÝ: ${lastQ.question}`;
-                    if (explanationText) explanationText.innerText = lastQ.explanation;
-                    
-                    explanationOverlay.style.opacity = "1";
-                    explanationOverlay.style.pointerEvents = "auto";
-                    
-                    pendingNextQuestionData = nextData;
+                // Bypass the Explanation Card Overlay completely (Option 1)
+                if (finished) {
+                    onVictory({ rank: myPlayer.rank });
                 } else {
-                    if (finished) {
-                        onVictory({ rank: myPlayer.rank });
-                    } else {
-                        applyNextQuestion(nextData);
-                    }
+                    applyNextQuestion(nextData);
                 }
             } catch (err) {
                 console.error("Error rendering explanation overlay in setTimeout:", err);

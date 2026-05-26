@@ -14,7 +14,7 @@ def serve_index():
 def serve_admin():
     return current_app.send_static_file('admin.html')
 
-@views_bp.route('/api/leaderboard', methods=['GET', 'POST'])
+@views_bp.route('/api/leaderboard', methods=['GET', 'POST', 'DELETE'])
 def leaderboard_api():
     if request.method == 'GET':
         try:
@@ -48,6 +48,21 @@ def leaderboard_api():
             return jsonify({"success": True})
         except Exception as e:
             print(f"Error saving leaderboard: {e}")
+            return jsonify({
+                "success": False,
+                "error": str(e)
+            }), 500
+    elif request.method == 'DELETE':
+        try:
+            from backend.app.database.db import get_db_connection
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM leaderboard")
+            conn.commit()
+            conn.close()
+            return jsonify({"success": True, "message": "Leaderboard cleared successfully"})
+        except Exception as e:
+            print(f"Error clearing leaderboard: {e}")
             return jsonify({
                 "success": False,
                 "error": str(e)

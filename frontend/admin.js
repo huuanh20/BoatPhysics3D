@@ -2941,6 +2941,7 @@ function apply2DFallback() {
 // ==========================================================================
 const openHofBtn = document.getElementById("open-hof-btn");
 const closeHofBtn = document.getElementById("close-hof-btn");
+const clearHofBtn = document.getElementById("clear-hof-btn");
 const hofModal = document.getElementById("hall-of-fame-modal");
 const hofList = document.getElementById("hall-of-fame-list");
 
@@ -2953,6 +2954,29 @@ if (openHofBtn) {
 if (closeHofBtn) {
     closeHofBtn.addEventListener("click", () => {
         closeHallOfFame();
+    });
+}
+
+if (clearHofBtn) {
+    clearHofBtn.addEventListener("click", () => {
+        if (confirm("Bạn có chắc chắn muốn XÓA TOÀN BỘ lịch sử bảng vàng không? Hành động này sẽ xóa vĩnh viễn dữ liệu và không thể khôi phục!")) {
+            fetch("/api/leaderboard", {
+                method: "DELETE"
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert("Đã xóa toàn bộ lịch sử bảng vàng thành công!");
+                    fetchHallOfFameData();
+                } else {
+                    alert("Lỗi khi xóa bảng vàng: " + (data.error || "Không rõ nguyên nhân"));
+                }
+            })
+            .catch(err => {
+                console.error("Lỗi khi kết nối server:", err);
+                alert("Không thể kết nối tới máy chủ để xóa bảng vàng!");
+            });
+        }
     });
 }
 

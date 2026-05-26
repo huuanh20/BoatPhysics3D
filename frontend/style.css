@@ -167,6 +167,41 @@ body, html {
     box-shadow: 0 0 15px rgba(255, 255, 255, 0.6);
 }
 
+/* Graphics Quality Options */
+.graphics-options {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+.graphics-btn {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #8da2c4;
+    padding: 10px 6px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    font-family: 'Montserrat', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    text-align: center;
+}
+.graphics-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.3);
+}
+.graphics-btn.active {
+    background: linear-gradient(135deg, rgba(0, 242, 254, 0.15) 0%, rgba(79, 172, 254, 0.15) 100%);
+    border-color: #00f2fe;
+    color: #00f2fe;
+    box-shadow: 0 0 12px rgba(0, 242, 254, 0.25);
+    text-shadow: 0 0 5px rgba(0, 242, 254, 0.5);
+}
+
 /* Buttons */
 .glow-btn {
     font-family: 'Montserrat', sans-serif;
@@ -2278,12 +2313,12 @@ body, html {
     left: auto !important;
     transform: scale(0.95) !important;
     transform-origin: right bottom !important;
-    width: 380px !important;
-    padding: 25px !important;
+    width: 520px !important; /* Increased panel width for projector readability */
+    padding: 30px !important; /* Increased padding */
     opacity: 0 !important;
     pointer-events: none !important;
     border-radius: 20px !important;
-    background: rgba(11, 14, 20, 0.85) !important;
+    background: rgba(11, 14, 20, 0.9) !important; /* Slightly more opaque background */
     backdrop-filter: blur(15px) saturate(180%) !important;
     -webkit-backdrop-filter: blur(15px) saturate(180%) !important;
     border: 1px solid rgba(255, 59, 48, 0.35) !important;
@@ -2301,26 +2336,26 @@ body, html {
 .admin-option-row {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 10px 14px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 10px;
-    font-size: 0.85rem;
-    font-weight: 500;
+    gap: 16px;
+    padding: 14px 20px; /* Increased option row padding */
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    font-size: 1.2rem; /* Significantly larger option text */
+    font-weight: 600; /* Bold option text for superb legibility */
     color: #ffffff;
-    margin-bottom: 4px;
+    margin-bottom: 6px;
 }
 .admin-option-key {
     display: flex;
     justify-content: center;
     align-items: center;
-    min-width: 24px;
-    width: 24px;
-    height: 24px;
-    border-radius: 6px;
+    min-width: 32px; /* Bigger letter bubble */
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
     font-weight: 800;
-    font-size: 0.75rem;
+    font-size: 1.05rem; /* Larger letter text */
     color: #ffffff;
 }
 .admin-option-row[data-index="0"] .admin-option-key { background: #e74c3c; box-shadow: 0 0 8px rgba(231, 76, 60, 0.5); }

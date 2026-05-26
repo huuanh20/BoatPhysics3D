@@ -25,9 +25,9 @@
         }
       }
     </script>
-  <script type="module" crossorigin src="/assets/admin-DhM6SswS.js"></script>
-  <link rel="modulepreload" crossorigin href="/assets/ably-realtime-BzHNEj8k.js">
-  <link rel="stylesheet" crossorigin href="/assets/admin-CVh9c7sg.css">
+  <script type="module" crossorigin src="/assets/admin-DWvpG8aw.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/ably-realtime-B_hscFPj.js">
+  <link rel="stylesheet" crossorigin href="/assets/admin-eLIu-Pwz.css">
 </head>
 <body class="admin-body">
     <!-- 3D Ocean Canvas Container -->
@@ -45,6 +45,7 @@
             </div>
             <button id="open-hof-btn" class="glow-btn" style="background: linear-gradient(135deg, #f1c40f 0%, #f39c12 100%); margin-right: 10px; border: 1px solid rgba(241, 196, 15, 0.5); box-shadow: 0 0 15px rgba(241, 196, 15, 0.3);">🏆 BẢNG VÀNG LỊCH SỬ</button>
             <button id="pause-game-btn" class="glow-btn pause-system-btn" style="display: none; margin-right: 10px;">TẠM DỪNG</button>
+            <button id="force-end-btn" class="glow-btn force-end-system-btn" style="display: none; margin-right: 10px; background: linear-gradient(135deg, #e67e22 0%, #d35400 100%); border: 1px solid rgba(230, 126, 34, 0.5); box-shadow: 0 0 15px rgba(230, 126, 34, 0.3);">KẾT THÚC</button>
             <button id="reset-game-btn" class="glow-btn reset-system-btn">RESET TRÒ CHƠI</button>
         </div>
     </div>
@@ -56,10 +57,6 @@
         <p class="panel-desc">Hệ thống điều khiển thuyền buồm 3D thời gian thực. Bấm nút bên dưới để phát lệnh xuất phát cho tất cả thuyền buồm.</p>
         <div class="leaderboard-divider"></div>
         <button id="start-game-btn" class="glow-btn start-btn" disabled>BẮT ĐẦU CHƠI</button>
-        <div class="admin-stress-test-group" style="margin-top: 15px; display: flex; flex-direction: column; gap: 8px; width: 100%;">
-            <button id="stress-test-btn" class="glow-btn" style="background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); border: 1px solid rgba(231, 76, 60, 0.5); width: 100%;">🧪 BẬT 50 BOTS (STRESS TEST)</button>
-            <button id="stop-stress-test-btn" class="glow-btn" style="background: linear-gradient(135deg, #7f8c8d 0%, #95a5a6 100%); border: 1px solid rgba(127, 140, 141, 0.5); display: none; width: 100%;">⏹️ TẮT BOTS GIẢ LẬP</button>
-        </div>
     </div>
     
     <!-- Connected Players Panel (Docked Right during Lobby) -->
@@ -103,7 +100,7 @@
             <span class="question-player-label" id="admin-question-player" style="font-size: 0.75rem; font-weight: 800; color: #00f2fe; text-transform: uppercase;">...</span>
         </div>
         <div class="leaderboard-divider" style="margin-top: 10px; margin-bottom: 15px;"></div>
-        <h3 id="admin-question-text" class="question-title" style="font-size: 1.1rem; margin-bottom: 18px; line-height: 1.4; color: #ffffff; font-weight: 700;">Đang đợi thuyền trưởng mở câu hỏi...</h3>
+        <h3 id="admin-question-text" class="question-title" style="font-size: 1.6rem; margin-bottom: 22px; line-height: 1.5; color: #ffffff; font-weight: 800;">Đang đợi thuyền trưởng mở câu hỏi...</h3>
         <div class="leaderboard-divider" style="margin-bottom: 15px;"></div>
         <div id="admin-options-container" style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
             <!-- Dynamic options will go here -->
@@ -173,6 +170,9 @@
             <h2 class="glow-text text-center">🏆 BẢNG VÀNG LỊCH SỬ</h2>
             <h3 class="panel-subtitle text-center">KỶ LỤC CÁC CUỘC ĐUA MỌI THỜI ĐẠI</h3>
             <div class="leaderboard-divider"></div>
+            <div style="text-align: center; margin-bottom: 15px;">
+                <button id="clear-hof-btn" class="glow-btn" style="background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); border: 1px solid rgba(231, 76, 60, 0.5); font-size: 0.85rem; padding: 5px 12px; box-shadow: 0 0 10px rgba(231, 76, 60, 0.2);">🗑️ XÓA TOÀN BỘ LỊCH SỬ</button>
+            </div>
             <div class="modal-table-container">
                 <table class="hall-of-fame-table">
                     <thead>

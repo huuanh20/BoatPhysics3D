@@ -1,35 +1,56 @@
 import fs from 'fs';
 import path from 'path';
 
-// Initial mock data for a lively first impression
-let inMemoryLeaderboard = [
-  { name: "Captain Hùng", color: "#e74c3c", rank: 1, score: 15, race_time: 42.50, created_at: new Date().toISOString() },
-  { name: "Thuyền Trưởng Lan", color: "#3498db", rank: 2, score: 10, race_time: 48.20, created_at: new Date().toISOString() },
-  { name: "Sát Thủ Tri Thức", color: "#2ecc71", rank: 3, score: 5, race_time: 55.10, created_at: new Date().toISOString() }
-];
+// Initial mock data is completely empty per user request!
+let inMemoryLeaderboard = [];
 
 const TMP_FILE = '/tmp/leaderboard.json';
 
-// Helper to load leaderboard
+// Helper to reliably locate the actual project root (workspace directory) in local development
+function getProjectRoot() {
+  let dir = process.cwd();
+  // Traverse up to 5 parent directories to locate the root containing package.json
+  for (let i = 0; i < 5; i++) {
+    if (fs.existsSync(path.join(dir, 'package.json'))) {
+      return dir;
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return process.cwd();
+}
+
+const LOCAL_FILE = path.join(getProjectRoot(), 'leaderboard.json');
+
+// Helper to load leaderboard with persistent fallback in project root
 function loadLeaderboard() {
   try {
-    if (fs.existsSync(TMP_FILE)) {
+    if (fs.existsSync(LOCAL_FILE)) {
+      const data = fs.readFileSync(LOCAL_FILE, 'utf8');
+      return JSON.parse(data);
+    } else if (fs.existsSync(TMP_FILE)) {
       const data = fs.readFileSync(TMP_FILE, 'utf8');
       return JSON.parse(data);
     }
   } catch (e) {
-    console.error("Error reading temp leaderboard file:", e);
+    console.error("Error reading leaderboard file:", e);
   }
   return inMemoryLeaderboard;
 }
 
-// Helper to save leaderboard
+// Helper to save leaderboard persistently in project root
 function saveLeaderboard(data) {
   try {
     inMemoryLeaderboard = data;
-    fs.writeFileSync(TMP_FILE, JSON.stringify(data, null, 2), 'utf8');
+    try {
+      fs.writeFileSync(LOCAL_FILE, JSON.stringify(data, null, 2), 'utf8');
+    } catch (localErr) {
+      // Vercel serverless read-only container fallback
+      fs.writeFileSync(TMP_FILE, JSON.stringify(data, null, 2), 'utf8');
+    }
   } catch (e) {
-    console.error("Error writing temp leaderboard file:", e);
+    console.error("Error writing leaderboard file:", e);
   }
 }
 
@@ -86,6 +107,17 @@ export default async function handler(req, res) {
     }
   }
 
-  res.setHeader('Allow', 'GET, POST');
+  if (req.method === 'DELETE') {
+    try {
+      saveLeaderboard([]);
+      return res.status(200).json({ success: true, message: 'Leaderboard cleared successfully' });
+    } catch (err) {
+      console.error('Error clearing leaderboard:', err);
+      return res.status(500).json({ success: false, error: 'Internal Server Error' });
+    }
+  }
+
+  res.setHeader('Allow', 'GET, POST, DELETE');
   return res.status(405).json({ success: false, error: 'Method not allowed' });
 }
+
