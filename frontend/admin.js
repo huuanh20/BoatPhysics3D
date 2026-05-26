@@ -2800,7 +2800,6 @@ function revealAnswerAndPrepareNext() {
     }
 
     // Play sound effects
-    sfxCorrect?.play().catch(() => {});
 
     // Pacing delay (4 seconds) before moving to next question
     setTimeout(() => {
