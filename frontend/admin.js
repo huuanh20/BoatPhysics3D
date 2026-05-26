@@ -8,12 +8,20 @@ import {
   createPlayerId,
   getPresenceMembers,
 } from "./ably-realtime.js";
+import { QUESTIONS } from "./questions.js";
 
 let ablyChannel = null;
 let adminWinners = [];
 let gamePaused = false;
 let hudFrameCount = 0;
 let hudLastFpsUpdate = performance.now();
+
+// Turn-based game synchronization state variables
+let currentQuestionIndex = 0;
+let timeLeft = 10;
+let questionTimer = null;
+let answeredPlayers = new Set();
+let questionStartTime = 0;
 
 // UI Elements
 const adminPanel = document.getElementById("admin-panel");
@@ -2062,7 +2070,6 @@ function setupAdminAbly(channel) {
             activePlayers[data.id].targetX = assignedLaneX; // Secure stable lane X coordinate
             activePlayers[data.id].targetZ = data.z;
             updateLiveLeaderboard();
-            trackWinnerFromPos(data);
         } else {
             // Create a temporary placeholder to prevent redundant presence queries
             activePlayers[data.id] = {
@@ -2079,83 +2086,13 @@ function setupAdminAbly(channel) {
 
     channel.subscribe("answer", (msg) => {
         const data = msg.data;
-        if (!data?.id) return;
+        if (!data?.id || !gameStarted) return;
+        
+        // Ignore stale answers from previous/other questions
+        if (data.questionIndex !== currentQuestionIndex) return;
 
-        if (activePlayers[data.id]) {
-            let statusText = "Chưa Trả Lời";
-            let statusClass = "status-waiting";
-
-            if (data.type === "boost") {
-                statusText = "Đã Dùng Phản Lực";
-                statusClass = "status-correct";
-                addEventLog(`${data.name} đã dùng Phản Lực! (+15m)`);
-            } else if (data.isCorrect) {
-                statusText = "Đã Trả Lời Đúng";
-                statusClass = "status-correct";
-                addEventLog(`${data.name} trả lời đúng! (+10m)`);
-            } else {
-                statusText = "Đã Trả Lời Sai";
-                statusClass = "status-wrong";
-                addEventLog(`${data.name} trả lời sai!`);
-            }
-
-            activePlayers[data.id].answerStatus = {
-                text: statusText,
-                className: statusClass
-            };
-
-            updateLiveLeaderboard();
-
-            if (activePlayers[data.id].statusTimeout) {
-                clearTimeout(activePlayers[data.id].statusTimeout);
-            }
-
-            activePlayers[data.id].statusTimeout = setTimeout(() => {
-                if (activePlayers[data.id]) {
-                    activePlayers[data.id].answerStatus = {
-                        text: "Đang Chờ",
-                        className: "status-waiting"
-                    };
-                    updateLiveLeaderboard();
-                }
-            }, 3500);
-        }
-    });
-
-    channel.subscribe("current-question", (msg) => {
-        const data = msg.data;
-        if (!data || !gameStarted) return;
-        if (adminQuestionPanel) {
-            adminQuestionPanel.classList.add("active");
-            
-            const badge = document.getElementById("admin-question-badge");
-            if (badge) badge.innerText = `CÂU HỎI ${data.questionNum}`;
-            
-            const playerLabel = document.getElementById("admin-question-player");
-            if (playerLabel) {
-                playerLabel.innerText = `LƯỢT ĐUA CỦA: ${data.playerName}`;
-                playerLabel.style.color = data.color || "#00f2fe";
-            }
-            
-            const questionText = document.getElementById("admin-question-text");
-            if (questionText) questionText.innerText = data.question_text;
-            
-            const container = document.getElementById("admin-options-container");
-            if (container) {
-                container.innerHTML = "";
-                const keys = ["A", "B", "C", "D"];
-                data.options.forEach((opt, idx) => {
-                    const row = document.createElement("div");
-                    row.className = "admin-option-row";
-                    row.setAttribute("data-index", idx);
-                    row.innerHTML = `
-                        <span class="admin-option-key">${keys[idx]}</span>
-                        <span class="admin-option-text">${opt}</span>
-                    `;
-                    container.appendChild(row);
-                });
-            }
-        }
+        // Process answer
+        handlePlayerAnswer(data.id, data.isCorrect, data.timeTaken);
     });
 }
 
@@ -2201,9 +2138,44 @@ function trackWinnerFromPos(data) {
 
 async function endGameAsAdmin() {
     gameStarted = false;
-    const players = await getPresenceMembers(ablyChannel);
+    
+    // Clear timer interval if running
+    if (questionTimer) {
+        clearInterval(questionTimer);
+        questionTimer = null;
+    }
+    
+    // Sort all active players by:
+    // 1) Score descending
+    // 2) Total response time ascending
+    const sortedPlayers = Object.values(activePlayers).sort((a, b) => {
+        const scoreA = a.score || 0;
+        const scoreB = b.score || 0;
+        if (scoreA !== scoreB) {
+            return scoreB - scoreA;
+        }
+        const timeA = a.totalTime || 0;
+        const timeB = b.totalTime || 0;
+        return timeA - timeB;
+    });
 
-    // Save each winner's score to backend SQLite DB
+    // Populate adminWinners with top 3
+    adminWinners = [];
+    const winnerLimit = Math.max(1, Math.min(3, sortedPlayers.length));
+    for (let i = 0; i < winnerLimit; i++) {
+        const p = sortedPlayers[i];
+        adminWinners.push({
+            sid: p.sid,
+            name: p.name || "Player",
+            color: p.color || "#fff",
+            rank: i + 1,
+            score: p.score || 0,
+            race_time: p.totalTime || 0.0
+        });
+        p.rank = i + 1;
+    }
+
+    // Save winners to SQLite DB / Vercel KV
     for (const w of adminWinners) {
         try {
             await fetch("/api/leaderboard", {
@@ -2215,7 +2187,7 @@ async function endGameAsAdmin() {
                     name: w.name,
                     color: w.color,
                     rank: w.rank,
-                    score: w.rank === 1 ? 15 : (w.rank === 2 ? 10 : 5),
+                    score: w.score,
                     race_time: w.race_time
                 })
             });
@@ -2224,43 +2196,20 @@ async function endGameAsAdmin() {
         }
     }
 
+    const presencePlayers = await getPresenceMembers(ablyChannel);
+
     ablyChannel.publish("admin", {
         type: "game_over",
         t: Date.now(),
         winners: adminWinners,
-        players,
+        players: presencePlayers,
     });
 
-    onGameOver({ winners: adminWinners, players });
+    onGameOver({ winners: adminWinners, players: presencePlayers });
 }
 
 async function forceEndGameAsAdmin() {
     if (!gameStarted) return;
-    
-    const playersList = Object.values(activePlayers);
-    
-    // Sort players by progress descending
-    playersList.sort((a, b) => (b.progress || 0) - (a.progress || 0));
-    
-    const raceTime = gameStartTime > 0 ? (Date.now() - gameStartTime) / 1000 : 30.0;
-    
-    // Fill remaining winner slots (up to 3) based on current progress
-    for (const p of playersList) {
-        if (adminWinners.length >= Math.max(1, Math.min(3, playersList.length))) {
-            break;
-        }
-        if (!adminWinners.find(w => w.sid === p.sid)) {
-            adminWinners.push({
-                sid: p.sid,
-                name: p.name || "Player",
-                color: p.color || "#fff",
-                rank: adminWinners.length + 1,
-                race_time: raceTime,
-            });
-            p.rank = adminWinners.length;
-        }
-    }
-    
     await endGameAsAdmin();
 }
 
@@ -2591,58 +2540,19 @@ function onGameReset() {
 
 function onGameStarted() {
     gameStartTime = Date.now();
-    if (adminQuestionPanel) {
-        adminQuestionPanel.classList.add("active");
-    }
+    currentQuestionIndex = 0;
+    timeLeft = 10;
+    answeredPlayers.clear();
     
-    // Kích hoạt di chuyển cho Bots giả lập nếu có
-    if (window.activeBots && window.activeBots.length > 0) {
-        if (botUpdateInterval) clearInterval(botUpdateInterval);
-        botUpdateInterval = setInterval(() => {
-            if (!gameStarted || gamePaused) return;
-            
-            let allFinished = true;
-            window.activeBots.forEach(bot => {
-                if (bot.progress < 1.0) {
-                    allFinished = false;
-                    // Tiến trình tăng dần ngẫu nhiên
-                    bot.progress = Math.min(1.0, bot.progress + 0.001 + Math.random() * 0.003);
-                    
-                    const laneIndex = laneMap[bot.sid] || 0;
-                    const laneX = -232 + laneIndex * 16;
-                    const z = START_Z - (bot.progress * TOTAL_DIST);
-                    
-                    // 1. Cập nhật trực tiếp trạng thái của bot cục bộ trên máy Admin để Admin render ngay lập tức mượt mà không bị phụ thuộc vào trễ mạng hay trễ echo Ably
-                    if (activePlayers[bot.sid]) {
-                        activePlayers[bot.sid].progress = bot.progress;
-                        activePlayers[bot.sid].targetX = laneX;
-                        activePlayers[bot.sid].targetZ = z;
-                        trackWinnerFromPos({ id: bot.sid, progress: bot.progress });
-                    }
-                    
-                    // 2. Gửi qua Ably cho Client
-                    if (ablyChannel) {
-                        ablyChannel.publish("pos", {
-                            id: bot.sid,
-                            name: bot.name,
-                            color: bot.color,
-                            progress: bot.progress,
-                            x: laneX,
-                            z: z
-                        });
-                    }
-                }
-            });
-            
-            // Cập nhật Live Leaderboard thời gian thực trên màn hình Admin
-            updateLiveLeaderboard();
-            
-            if (allFinished) {
-                clearInterval(botUpdateInterval);
-                botUpdateInterval = null;
-            }
-        }, 120);
-    }
+    // Reset player scores, times and answer status
+    Object.values(activePlayers).forEach(p => {
+        p.score = 0;
+        p.totalTime = 0.0;
+        p.progress = 0.0;
+        p.answeredCurrent = false;
+        p.answerStatus = { text: "Chưa Trả Lời", className: "status-waiting" };
+    });
+
     adminPanel.classList.remove("active");
     if (lobbyPlayersPanel) {
         lobbyPlayersPanel.classList.remove("active");
@@ -2663,7 +2573,6 @@ function onGameStarted() {
             clearTimeout(activePlayers[sid].statusTimeout);
             delete activePlayers[sid].statusTimeout;
         }
-        activePlayers[sid].answerStatus = { text: "Chưa Trả Lời", className: "status-waiting" };
     });
 
     if (pauseGameBtn) {
@@ -2687,12 +2596,237 @@ function onGameStarted() {
         controls.target.set(-100, 10, START_Z);
         camera.position.set(-100, 250, START_Z);
     }
-    refreshAdminPresence();
+    
+    // Start synchronized Turn-based question loop!
+    startSyncQuestion(0);
+}
+
+function startSyncQuestion(index) {
+    if (!gameStarted) return;
+    
+    currentQuestionIndex = index;
+    timeLeft = 10;
+    answeredPlayers.clear();
+    questionStartTime = Date.now();
+
+    // Clear previous timer interval if any
+    if (questionTimer) {
+        clearInterval(questionTimer);
+        questionTimer = null;
+    }
+
+    const q = QUESTIONS[index];
+    if (!q) {
+        // All questions completed! End the game!
+        endGameAsAdmin();
+        return;
+    }
+
+    // Reset player answered statuses for current question
+    Object.values(activePlayers).forEach(p => {
+        p.answeredCurrent = false;
+        p.answerStatus = { text: "Chưa Trả Lời", className: "status-waiting" };
+    });
+    updateLiveLeaderboard();
+
+    // Update Admin Question Panel UI
+    if (adminQuestionPanel) {
+        adminQuestionPanel.classList.add("active");
+        
+        const badge = document.getElementById("admin-question-badge");
+        if (badge) badge.innerText = `CÂU HỎI ${index + 1}`;
+        
+        const timerBadge = document.getElementById("admin-question-timer");
+        if (timerBadge) timerBadge.innerText = `10s`;
+        
+        const playerLabel = document.getElementById("admin-question-player");
+        if (playerLabel) {
+            playerLabel.innerText = `TRẢ LỜI: 0/${Object.keys(activePlayers).length}`;
+            playerLabel.style.color = "#ffcc00";
+        }
+        
+        const questionText = document.getElementById("admin-question-text");
+        if (questionText) questionText.innerText = q.question;
+        
+        const container = document.getElementById("admin-options-container");
+        if (container) {
+            container.innerHTML = "";
+            const keys = ["A", "B", "C", "D"];
+            q.options.forEach((opt, oIdx) => {
+                const row = document.createElement("div");
+                row.className = "admin-option-row";
+                row.setAttribute("data-index", oIdx);
+                row.innerHTML = `
+                    <span class="admin-option-key">${keys[oIdx]}</span>
+                    <span class="admin-option-text">${opt}</span>
+                `;
+                container.appendChild(row);
+            });
+        }
+    }
+
+    // Broadcast sync_question event via Ably to all clients
+    if (ablyChannel) {
+        ablyChannel.publish("admin", {
+            type: "sync_question",
+            questionIndex: index,
+            questionNum: index + 1,
+            questionText: q.question,
+            options: q.options
+        });
+    }
+
+    // Start countdown timer
+    questionTimer = setInterval(() => {
+        if (gamePaused) return; // Pause timer if game is paused
+        
+        timeLeft--;
+        const timerBadge = document.getElementById("admin-question-timer");
+        if (timerBadge) timerBadge.innerText = `${timeLeft}s`;
+        
+        if (timeLeft <= 0) {
+            clearInterval(questionTimer);
+            questionTimer = null;
+            revealAnswerAndPrepareNext();
+        }
+    }, 1000);
+
+    // Simulate answers for stress test Bots if active
+    if (window.activeBots && window.activeBots.length > 0) {
+        window.activeBots.forEach(bot => {
+            if (activePlayers[bot.sid]) {
+                const delay = 1000 + Math.random() * 6000; // Random delay between 1s and 7s
+                setTimeout(() => {
+                    if (!gameStarted || gamePaused || currentQuestionIndex !== index) return;
+                    if (answeredPlayers.has(bot.sid)) return;
+                    
+                    const isCorrect = Math.random() > 0.35; // 65% chance of correct answer
+                    const timeTaken = delay / 1000;
+                    
+                    // Trigger answer process on admin side
+                    handlePlayerAnswer(bot.sid, isCorrect, timeTaken);
+                }, delay);
+            }
+        });
+    }
+}
+
+function handlePlayerAnswer(playerId, isCorrect, timeTaken) {
+    if (!gameStarted) return;
+    if (answeredPlayers.has(playerId)) return;
+    
+    answeredPlayers.add(playerId);
+    
+    const p = activePlayers[playerId];
+    if (p) {
+        p.answeredCurrent = true;
+        p.score = (p.score || 0) + (isCorrect ? 1 : 0);
+        p.totalTime = (p.totalTime || 0) + timeTaken;
+        p.progress = p.score / 20.0;
+        
+        p.answerStatus = {
+            text: isCorrect ? "Đã Trả Lời Đúng" : "Đã Trả Lời Sai",
+            className: isCorrect ? "status-correct" : "status-wrong"
+        };
+        
+        // Add log entry
+        addEventLog(`${p.name} đã trả lời (${timeTaken.toFixed(2)}s)!`);
+        updateLiveLeaderboard();
+    }
+    
+    // Update answered count
+    const totalConnected = Object.keys(activePlayers).length;
+    const playerLabel = document.getElementById("admin-question-player");
+    if (playerLabel) {
+        playerLabel.innerText = `TRẢ LỜI: ${answeredPlayers.size}/${totalConnected}`;
+    }
+    
+    // If all players have answered, reveal answer immediately
+    if (answeredPlayers.size >= totalConnected) {
+        if (questionTimer) {
+            clearInterval(questionTimer);
+            questionTimer = null;
+        }
+        revealAnswerAndPrepareNext();
+    }
+}
+
+function revealAnswerAndPrepareNext() {
+    if (!gameStarted) return;
+
+    // Clear timer interval
+    if (questionTimer) {
+        clearInterval(questionTimer);
+        questionTimer = null;
+    }
+
+    const q = QUESTIONS[currentQuestionIndex];
+    if (!q) return;
+
+    const correctAnswer = q.answer;
+
+    // Highlight correct answer on Admin UI
+    const optionRows = document.querySelectorAll(".admin-option-row");
+    optionRows.forEach(row => {
+        const idx = parseInt(row.getAttribute("data-index"));
+        if (idx === correctAnswer) {
+            row.style.background = "linear-gradient(135deg, rgba(46, 204, 113, 0.85) 0%, rgba(46, 204, 113, 0.95) 100%)";
+            row.style.borderColor = "#2ecc71";
+            row.style.boxShadow = "0 0 20px rgba(46, 204, 113, 0.4)";
+        } else {
+            row.style.opacity = "0.3";
+        }
+    });
+
+    // Handle timeouts for players who didn't select an answer
+    Object.values(activePlayers).forEach(p => {
+        if (!p.answeredCurrent) {
+            p.totalTime = (p.totalTime || 0) + 10.0;
+            p.answerStatus = { text: "Hết Giờ", className: "status-wrong" };
+            addEventLog(`${p.name} đã hết thời gian trả lời!`);
+        }
+    });
+
+    // Update sorting & scoreboard list
+    updateLiveLeaderboard();
+
+    // Broadcast reveal_answer event to all di động clients
+    if (ablyChannel) {
+        ablyChannel.publish("admin", {
+            type: "reveal_answer",
+            questionIndex: currentQuestionIndex,
+            correctAnswer: correctAnswer
+        });
+    }
+
+    // Play sound effects
+    sfxCorrect?.play().catch(() => {});
+
+    // Pacing delay (4 seconds) before moving to next question
+    setTimeout(() => {
+        if (!gameStarted) return;
+        
+        currentQuestionIndex++;
+        if (currentQuestionIndex < QUESTIONS.length) {
+            startSyncQuestion(currentQuestionIndex);
+        } else {
+            endGameAsAdmin();
+        }
+    }, 4000);
 }
 
 function updateLiveLeaderboard() {
-    // Sort players by progress descending
-    const sorted = Object.values(activePlayers).sort((a, b) => b.progress - a.progress);
+    // Sort players by: 1) Score descending, 2) Total response time ascending
+    const sorted = Object.values(activePlayers).sort((a, b) => {
+        const scoreA = a.score || 0;
+        const scoreB = b.score || 0;
+        if (scoreA !== scoreB) {
+            return scoreB - scoreA;
+        }
+        const timeA = a.totalTime || 0;
+        const timeB = b.totalTime || 0;
+        return timeA - timeB;
+    });
     
     if (statusPlayersList) {
         statusPlayersList.innerHTML = "";
@@ -3080,7 +3214,7 @@ function renderHallOfFame(leaderboard) {
                     <strong>${r.name}</strong>
                 </div>
             </td>
-            <td>${r.score}/15</td>
+            <td>${r.score}/20</td>
             <td style="color: #00f2fe; font-family: monospace; font-weight: bold;">${timeStr}</td>
             <td style="color: #8da2c4; font-size: 0.8rem;">${dateStr}</td>
         `;

@@ -23,6 +23,12 @@ let lastPosPublish = 0;
 let lastPublishedZ = -9999;
 let lastPublishedProgress = -1;
 
+// Turn-based game synchronization state variables
+let currentQuestionIndex = 0;
+let questionStartTime = 0;
+let localQuestionTimer = null;
+let mySelectedIdx = null;
+
 function savePlayerStateToLocalStorage() {
     if (!myPlayer) return;
     localStorage.setItem("boat_game_started", gameStarted);
@@ -2087,7 +2093,123 @@ function handleAdminEvent(data) {
             window.activeBots = [];
             refreshLobbyFromPresence();
             break;
+        case "sync_question":
+            handleSyncQuestion(data);
+            break;
+        case "reveal_answer":
+            handleRevealAnswer(data);
+            break;
     }
+}
+
+function handleSyncQuestion(data) {
+    if (!gameStarted || gamePaused) return;
+
+    currentQuestionIndex = data.questionIndex;
+    questionStartTime = Date.now();
+    mySelectedIdx = null;
+
+    // Reset option buttons
+    optionButtons.forEach((btn, idx) => {
+        btn.classList.remove("selected", "success", "error");
+        btn.classList.add("controller-mode"); // Kahoot buzzer pads style
+        btn.disabled = false;
+        btn.style.opacity = "1";
+        btn.style.pointerEvents = "auto";
+        
+        // Show choice tags
+        const labelSpan = document.getElementById(`opt-${idx}`);
+        if (labelSpan) labelSpan.innerText = `LỰA CHỌN ${["A", "B", "C", "D"][idx]}`;
+    });
+
+    const questionNum = data.questionNum;
+    if (questionNumberBadge) {
+        questionNumberBadge.innerText = `CÂU HỎI ${questionNum}`;
+    }
+    
+    // Prompt the player to look at the main big screen for questions
+    if (questionText) {
+        questionText.innerText = "HÃY NHÌN LÊN MÀN HÌNH CHÍNH ĐỂ XEM CÂU HỎI & CÁC ĐÁP ÁN!";
+    }
+
+    // Update answered count
+    if (correctCount) {
+        correctCount.innerText = quizScore;
+    }
+
+    // Reset and start local countdown to sync exactly with Admin
+    let localTimeLeft = 10;
+    const timerBadge = document.getElementById("question-timer-badge");
+    if (timerBadge) timerBadge.innerText = "10s";
+
+    if (localQuestionTimer) {
+        clearInterval(localQuestionTimer);
+        localQuestionTimer = null;
+    }
+
+    localQuestionTimer = setInterval(() => {
+        if (gamePaused) return;
+        localTimeLeft--;
+        if (timerBadge) timerBadge.innerText = `${localTimeLeft}s`;
+        
+        if (localTimeLeft <= 0) {
+            clearInterval(localQuestionTimer);
+            localQuestionTimer = null;
+            // Lock options if didn't choose in time
+            optionButtons.forEach(btn => {
+                btn.disabled = true;
+                btn.style.pointerEvents = "none";
+            });
+        }
+    }, 1000);
+}
+
+function handleRevealAnswer(data) {
+    if (localQuestionTimer) {
+        clearInterval(localQuestionTimer);
+        localQuestionTimer = null;
+    }
+
+    const correctAnswer = data.correctAnswer;
+    const isCorrect = mySelectedIdx === correctAnswer;
+
+    if (isCorrect) {
+        quizScore++;
+        currentStreak++;
+        
+        // Move local boat indicator
+        const progress = quizScore / 20.0;
+        if (correctCount) correctCount.innerText = quizScore;
+        if (playerProgressBar) playerProgressBar.style.width = `${progress * 100}%`;
+        if (playerProgressBoat) playerProgressBoat.style.left = `${progress * 100}%`;
+    } else {
+        currentStreak = 0;
+    }
+
+    // Display correct or wrong visual overlays on client
+    if (feedbackOverlay) {
+        feedbackOverlay.classList.remove("correct", "wrong");
+        feedbackOverlay.classList.add(isCorrect ? "correct" : "wrong");
+        feedbackOverlay.classList.add("active");
+
+        if (isCorrect) {
+            if (feedbackTitle) feedbackTitle.innerText = "CHÍNH XÁC!";
+            if (feedbackDesc) feedbackDesc.innerText = `Tuyệt vời! Bạn trả lời đúng câu hỏi này. Chuỗi: x${currentStreak}`;
+            triggerSFX("correct");
+        } else {
+            if (feedbackTitle) feedbackTitle.innerText = "SAI MẤT RỒI!";
+            const keys = ["A", "B", "C", "D"];
+            if (feedbackDesc) feedbackDesc.innerText = `Đáp án đúng là ${keys[correctAnswer]}. Bạn cần cố gắng hơn!`;
+            triggerSFX("wrong");
+        }
+    }
+
+    setTimeout(() => {
+        if (feedbackOverlay) {
+            feedbackOverlay.classList.remove("active");
+        }
+        mySelectedIdx = null;
+    }, 3500);
 }
 
 function onGameReset() {
@@ -2168,12 +2290,17 @@ function onGameStarted() {
     gamePaused = false;
     quizScore = 0;
     quizQueueIdx = 0;
-    quizQueue = QUESTIONS.map((_, i) => i).sort(() => Math.random() - 0.5);
     currentProgress = 0;
 
     waitingScreen.classList.remove("active");
     quizScreen.classList.add("active");
     triggerSFX("horn");
+    
+    // Hide support items inventory to guarantee fair play and prevent desync
+    const invPanel = document.querySelector(".inventory-panel");
+    if (invPanel) {
+        invPanel.style.display = "none";
+    }
     
     // Switch background music from lobby to gameplay
     if (bgmLobby) bgmLobby.pause();
@@ -2184,7 +2311,6 @@ function onGameStarted() {
     }
 
     savePlayerStateToLocalStorage();
-    sendNextQuestion();
 }
 
 function onPauseStatus(data) {
@@ -2562,15 +2688,46 @@ function handleLocalAnswer(answerIdx) {
 // SUBMIT OPTION CLICK
 optionButtons.forEach(btn => {
     btn.addEventListener("click", () => {
+        if (!gameStarted || gamePaused) return;
         const selectedIdx = parseInt(btn.getAttribute("data-index"));
         
         // Visual select highlight
         btn.classList.add("selected");
         
-        // Disable all buttons to prevent double clicks
-        optionButtons.forEach(b => b.disabled = true);
+        // Disable all buttons immediately to prevent double clicks and tap throughs
+        optionButtons.forEach(b => {
+            b.disabled = true;
+            b.style.pointerEvents = "none";
+        });
         
-        handleLocalAnswer(selectedIdx);
+        // Stop local timer
+        if (localQuestionTimer) {
+            clearInterval(localQuestionTimer);
+            localQuestionTimer = null;
+        }
+        
+        // Calculate reaction time precisely
+        const timeTaken = (Date.now() - questionStartTime) / 1000;
+        mySelectedIdx = selectedIdx;
+        
+        const q = QUESTIONS[currentQuestionIndex];
+        const isCorrect = q ? (selectedIdx === q.answer) : false;
+        
+        // Send answer payload to Admin via Ably
+        if (ablyChannel && myPlayer) {
+            try {
+                ablyChannel.publish("answer", {
+                    id: myPlayer.id,
+                    name: myPlayer.name,
+                    color: myPlayer.color,
+                    questionIndex: currentQuestionIndex,
+                    isCorrect: isCorrect,
+                    timeTaken: Math.min(10.0, timeTaken) // Clamp reaction time at 10s
+                });
+            } catch (e) {
+                console.error("Failed to publish answer to Ably:", e);
+            }
+        }
     });
 });
 
@@ -3080,7 +3237,7 @@ function renderHallOfFame(leaderboard) {
                     <strong>${r.name}</strong>
                 </div>
             </td>
-            <td>${r.score}/15</td>
+            <td>${r.score}/20</td>
             <td style="color: #00f2fe; font-family: monospace; font-weight: bold;">${timeStr}</td>
             <td style="color: #8da2c4; font-size: 0.8rem;">${dateStr}</td>
         `;
