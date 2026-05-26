@@ -1578,6 +1578,7 @@ body, html {
         padding: 8px 12px;
         border-radius: 12px;
         gap: 4px;
+        pointer-events: none !important;
     }
     
     .progress-labels {
@@ -1950,6 +1951,7 @@ body, html {
     z-index: 10;
     box-shadow: 0 4px 20px rgba(241, 196, 15, 0.2);
     animation: pulseStreak 1.8s infinite alternate;
+    pointer-events: none !important;
 }
 
 @keyframes pulseStreak {
@@ -1990,6 +1992,7 @@ body, html {
     font-weight: 800;
     letter-spacing: 1px;
     display: none; /* Hidden by default */
+    pointer-events: none !important;
 }
 
 .shield-active-badge.active {
